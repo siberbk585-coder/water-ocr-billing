@@ -1,14 +1,10 @@
-import { requireAdmin } from "@/lib/guards";
-import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/db";
 import { formatCurrency } from "@/lib/billing";
 import { InvoiceStatus } from "@prisma/client";
 import { ConfirmPaymentButton } from "./ConfirmPaymentButton";
-import { adminNav, formatPeriod } from "@/lib/vi";
+import { formatPeriod } from "@/lib/vi";
 
 export default async function AdminPaymentsPage() {
-  const user = await requireAdmin();
-
   const invoices = await prisma.invoice.findMany({
     where: { status: InvoiceStatus.ISSUED },
     include: { household: true, period: true, payment: true },
@@ -17,7 +13,7 @@ export default async function AdminPaymentsPage() {
   });
 
   return (
-    <AppShell user={user} nav={[...adminNav]}>
+    <>
       <h1 className="mb-4 text-2xl font-bold">Xác nhận thanh toán</h1>
       <div className="overflow-x-auto card p-0">
         <table className="table-modern">
@@ -50,6 +46,6 @@ export default async function AdminPaymentsPage() {
           </tbody>
         </table>
       </div>
-    </AppShell>
+    </>
   );
 }

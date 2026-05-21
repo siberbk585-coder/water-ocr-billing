@@ -1,13 +1,9 @@
-import { requireAdmin } from "@/lib/guards";
-import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/db";
 import { ReadingStatus, InvoiceStatus } from "@prisma/client";
 import Link from "next/link";
-import { adminNav, auditActionLabel, entityLabel } from "@/lib/vi";
+import { auditActionLabel, entityLabel } from "@/lib/vi";
 
 export default async function AdminDashboardPage() {
-  const user = await requireAdmin();
-
   const [households, pendingReadings, issuedInvoices, paidInvoices, recentAudit] =
     await Promise.all([
       prisma.household.count(),
@@ -26,7 +22,7 @@ export default async function AdminDashboardPage() {
   const ocrAccuracy = ocrStats.length ? Math.round((ocrMatch / ocrStats.length) * 100) : 0;
 
   return (
-    <AppShell user={user} nav={[...adminNav]}>
+    <>
       <h1 className="mb-6 text-2xl font-bold">Tổng quan</h1>
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi title="Hộ dân" value={households} tone="blue" />
@@ -55,7 +51,7 @@ export default async function AdminDashboardPage() {
           {!recentAudit.length && <li className="text-slate-500">Chưa có nhật ký</li>}
         </ul>
       </div>
-    </AppShell>
+    </>
   );
 }
 

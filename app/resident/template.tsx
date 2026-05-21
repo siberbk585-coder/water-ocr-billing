@@ -1,0 +1,3 @@
+export default function ResidentTemplate({ children }: { children: React.ReactNode }) {
+  return <div className="page-content">{children}</div>;
+}

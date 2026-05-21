@@ -1,12 +1,8 @@
-import { requireAdmin } from "@/lib/guards";
-import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/db";
 import { parseAnomalyFlags } from "@/lib/anomaly";
-import { adminNav, anomalyLabel, formatPeriod, readingStatusLabel } from "@/lib/vi";
+import { anomalyLabel, formatPeriod, readingStatusLabel } from "@/lib/vi";
 
 export default async function AdminReadingsPage() {
-  const user = await requireAdmin();
-
   const readings = await prisma.meterReading.findMany({
     take: 100,
     orderBy: { submittedAt: "desc" },
@@ -14,7 +10,7 @@ export default async function AdminReadingsPage() {
   });
 
   return (
-    <AppShell user={user} nav={[...adminNav]}>
+    <>
       <h1 className="mb-4 text-2xl font-bold">Chỉ số đồng hồ</h1>
       <div className="overflow-x-auto card p-0">
         <table className="table-modern">
@@ -57,6 +53,6 @@ export default async function AdminReadingsPage() {
           </tbody>
         </table>
       </div>
-    </AppShell>
+    </>
   );
 }

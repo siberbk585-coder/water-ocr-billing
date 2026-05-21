@@ -1,17 +1,12 @@
 import { requireResident } from "@/lib/guards";
-import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/db";
 import { SubmitReadingClient } from "./SubmitReadingClient";
-import { formatPeriod, residentNav } from "@/lib/vi";
+import { formatPeriod } from "@/lib/vi";
 
 export default async function SubmitReadingPage() {
   const user = await requireResident();
   if (!user.householdId) {
-    return (
-      <AppShell user={user} nav={[...residentNav]}>
-        <p>Tài khoản chưa gắn hộ dân. Vui lòng liên hệ quản trị.</p>
-      </AppShell>
-    );
+    return <p>Tài khoản chưa gắn hộ dân. Vui lòng liên hệ quản trị.</p>;
   }
 
   const household = await prisma.household.findUniqueOrThrow({
@@ -24,7 +19,7 @@ export default async function SubmitReadingPage() {
   });
 
   return (
-    <AppShell user={user} nav={[...residentNav]}>
+    <>
       <h1 className="mb-4 text-2xl font-bold">Ghi chỉ số đồng hồ</h1>
       <div className="card mb-4">
         <p className="text-sm">
@@ -41,6 +36,6 @@ export default async function SubmitReadingPage() {
       ) : (
         <p>Chưa có kỳ tính cước.</p>
       )}
-    </AppShell>
+    </>
   );
 }

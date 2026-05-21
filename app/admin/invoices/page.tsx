@@ -1,14 +1,10 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/guards";
-import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/db";
 import { formatCurrency } from "@/lib/billing";
 import { GenerateInvoicesButton } from "./GenerateInvoicesButton";
-import { adminNav, formatPeriod, invoiceStatusLabel } from "@/lib/vi";
+import { formatPeriod, invoiceStatusLabel } from "@/lib/vi";
 
 export default async function AdminInvoicesPage() {
-  const user = await requireAdmin();
-
   const periods = await prisma.billingPeriod.findMany({
     orderBy: [{ year: "desc" }, { month: "desc" }],
     take: 6,
@@ -22,7 +18,7 @@ export default async function AdminInvoicesPage() {
   });
 
   return (
-    <AppShell user={user} nav={[...adminNav]}>
+    <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Hóa đơn</h1>
         {currentPeriod && <GenerateInvoicesButton periodId={currentPeriod.id} />}
@@ -67,6 +63,6 @@ export default async function AdminInvoicesPage() {
           </tbody>
         </table>
       </div>
-    </AppShell>
+    </>
   );
 }

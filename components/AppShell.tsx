@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { SessionUser } from "@/lib/auth";
 import { appTitle, userRoleLabel } from "@/lib/vi";
+import { AppNav } from "@/components/AppNav";
 
 export function AppShell({
   user,
@@ -30,18 +31,8 @@ export function AppShell({
               </span>
             </Link>
 
-            <nav className="w-full sm:w-auto">
-              <div className="inline-flex w-full flex-wrap items-center justify-start gap-1 rounded-2xl border border-[var(--border)] bg-white/70 p-1 shadow-sm sm:w-auto sm:flex-nowrap">
-                {nav.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="rounded-xl px-3 py-2 text-sm font-semibold text-[var(--muted)] transition hover:bg-[var(--primary-soft)] hover:text-[var(--primary-dark)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
+            <nav className="w-full sm:w-auto" aria-label="Menu chính">
+              <AppNav items={nav} />
             </nav>
 
             <div className="flex items-center gap-3 text-sm">

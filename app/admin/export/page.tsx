@@ -1,13 +1,8 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/guards";
-import { AppShell } from "@/components/AppShell";
-import { adminNav } from "@/lib/vi";
 
 export default async function AdminExportPage() {
-  const user = await requireAdmin();
-
   return (
-    <AppShell user={user} nav={[...adminNav]}>
+    <>
       <h1 className="mb-2 text-2xl font-bold">Xuất dữ liệu</h1>
       <p className="mb-6 text-sm text-slate-600">
         Tải file Excel (.xlsx) gồm nhiều sheet: tổng quan, hộ dân, kỳ ghi, chỉ số, hóa đơn, thanh toán,
@@ -35,6 +30,6 @@ export default async function AdminExportPage() {
           </Link>
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }

@@ -1,19 +1,14 @@
 import Link from "next/link";
 import { requireResident } from "@/lib/guards";
-import { AppShell } from "@/components/AppShell";
 import { prisma } from "@/lib/db";
 import { formatCurrency } from "@/lib/billing";
 import { InvoiceStatus } from "@prisma/client";
-import { formatPeriod, invoiceStatusLabel, residentNav } from "@/lib/vi";
+import { formatPeriod, invoiceStatusLabel } from "@/lib/vi";
 
 export default async function ResidentInvoicesPage() {
   const user = await requireResident();
   if (!user.householdId) {
-    return (
-      <AppShell user={user} nav={[...residentNav]}>
-        <p>Chưa gắn hộ dân.</p>
-      </AppShell>
-    );
+    return <p>Chưa gắn hộ dân.</p>;
   }
 
   const invoices = await prisma.invoice.findMany({
@@ -23,7 +18,7 @@ export default async function ResidentInvoicesPage() {
   });
 
   return (
-    <AppShell user={user} nav={[...residentNav]}>
+    <>
       <h1 className="mb-4 text-2xl font-bold">Hóa đơn của tôi</h1>
       <div className="overflow-x-auto card p-0">
         <table className="table-modern">
@@ -79,6 +74,6 @@ export default async function ResidentInvoicesPage() {
           </tbody>
         </table>
       </div>
-    </AppShell>
+    </>
   );
 }
