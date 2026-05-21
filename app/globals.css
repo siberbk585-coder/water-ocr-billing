@@ -1,26 +1,133 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #eef5f8;
+  --foreground: #202426;
+  --muted: #6f7a82;
+  --primary: #14b8a6;
+  --primary-dark: #0f766e;
+  --primary-soft: #dff7f1;
+  --accent: #42cba5;
+  --accent-blue: #6f9ee8;
+  --accent-yellow: #f2c94c;
+  --accent-purple: #a57be8;
+  --accent-pink: #ef6f91;
+  --card: #ffffff;
+  --card-muted: #f8faf9;
+  --border: #e3e8e6;
+  --border-strong: #d4ddda;
+  --danger: #d9486e;
+  --warning: #d99a00;
+  --shadow: 0 18px 45px rgb(57 72 80 / 0.08), 0 2px 8px rgb(57 72 80 / 0.05);
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgb(33 105 149 / 0.3) 0, rgb(33 105 149 / 0) 13%, rgb(33 105 149 / 0) 87%, rgb(33 105 149 / 0.24) 100%),
+    linear-gradient(180deg, #f8fbfb 0%, var(--background) 52%, #eef3f1 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--foreground);
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.btn-primary {
+  box-shadow: 0 10px 20px rgb(20 184 166 / 0.2);
+  @apply bg-[var(--primary)] text-white hover:bg-[var(--primary-dark)];
+}
+
+.btn-secondary {
+  @apply border border-[var(--border)] bg-white text-[var(--foreground)] hover:bg-[var(--card-muted)];
+}
+
+.card {
+  box-shadow: var(--shadow);
+  @apply rounded-lg border border-[var(--border)] bg-[var(--card)] p-5;
+}
+
+.input {
+  @apply w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--foreground)] placeholder:text-slate-400 focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20;
+}
+
+.label {
+  @apply mb-1 block text-sm font-semibold text-[var(--foreground)];
+}
+
+.badge {
+  @apply inline-flex rounded-full px-2 py-0.5 text-xs font-semibold;
+}
+
+.badge-success {
+  @apply bg-emerald-50 text-emerald-700;
+}
+
+.badge-warning {
+  @apply bg-amber-50 text-amber-700;
+}
+
+.badge-danger {
+  @apply bg-rose-50 text-rose-700;
+}
+
+.card table thead {
+  border-color: var(--border);
+  background: linear-gradient(90deg, #f7fbff, #f7fbf8 48%, #fffaf0);
+  color: var(--muted);
+}
+
+.table-modern {
+  @apply w-full text-sm;
+}
+
+.table-modern thead th {
+  @apply whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide;
+}
+
+.table-modern tbody td {
+  @apply px-4 py-3 align-middle;
+}
+
+.table-modern tbody tr {
+  border-color: var(--border);
+}
+
+.table-modern tbody tr:hover {
+  background: var(--card-muted);
+}
+
+.table-modern tbody tr:nth-child(even) {
+  background: rgb(248 250 249 / 0.55);
+}
+
+.table-modern a {
+  @apply font-semibold text-[var(--primary-dark)] hover:underline;
+}
+
+.card table tbody tr {
+  border-color: var(--border);
+}
+
+.card table tbody tr:hover {
+  background: var(--card-muted);
+}
+
+.card table tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.card h2,
+.card h3 {
+  color: var(--foreground);
 }

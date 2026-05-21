@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  RESIDENT
+  ADMIN
+}
+
+enum ReadingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum InputMethod {
+  OCR_CONFIRMED
+  OCR_EDITED
+  MANUAL
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  CANCELLED
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  phone        String     @unique
+  passwordHash String
+  name         String
+  role         UserRole   @default(RESIDENT)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  household    Household?
+  auditLogs    AuditLog[] @relation("AuditActor")
+  payments     Payment[]  @relation("PaymentConfirmer")
+}
+
+model PriceGroup {
+  id        String      @id @default(cuid())
+  code      String      @unique
+  name      String
+  unitPrice Float
+  createdAt DateTime    @default(now())
+  households Household[]
+}
+
+model Household {
+  id           String         @id @default(cuid())
+  meterCode    String         @unique
+  address      String
+  residentName String
+  userId       String?        @unique
+  user         User?          @relation(fields: [userId], references: [id])
+  priceGroupId String
+  priceGroup   PriceGroup     @relation(fields: [priceGroupId], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  readings     MeterReading[]
+  invoices     Invoice[]
+  notifications Notification[]
+}
+
+model BillingPeriod {
+  id        String         @id @default(cuid())
+  year      Int
+  month     Int
+  status    PeriodStatus   @default(OPEN)
+  createdAt DateTime       @default(now())
+  readings  MeterReading[]
+  invoices  Invoice[]
+
+  @@unique([year, month])
+}
+
+model MeterReading {
+  id              String        @id @default(cuid())
+  householdId     String
+  household       Household     @relation(fields: [householdId], references: [id])
+  periodId        String
+  period          BillingPeriod @relation(fields: [periodId], references: [id])
+  oldReading      Float
+  ocrValue        Float?
+  confirmedValue  Float?
+  confidence      Float?
+  inputMethod     InputMethod?
+  imagePath       String?
+  usageM3         Float?
+  anomalyFlags    String        @default("[]")
+  status          ReadingStatus @default(PENDING)
+  submittedAt     DateTime      @default(now())
+  confirmedAt     DateTime?
+
+  @@unique([householdId, periodId])
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  householdId String
+  household   Household     @relation(fields: [householdId], references: [id])
+  periodId    String
+  period      BillingPeriod @relation(fields: [periodId], references: [id])
+  usageM3     Float
+  unitPrice   Float
+  totalAmount Float
+  pdfPath     String?
+  status      InvoiceStatus @default(DRAFT)
+  issuedAt    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  payment     Payment?
+
+  @@unique([householdId, periodId])
+}
+
+model Payment {
+  id           String    @id @default(cuid())
+  invoiceId    String    @unique
+  invoice      Invoice   @relation(fields: [invoiceId], references: [id])
+  amount       Float
+  method       String    @default("CASH")
+  note         String?
+  confirmedAt  DateTime?
+  confirmedById String?
+  confirmedBy  User?     @relation("PaymentConfirmer", fields: [confirmedById], references: [id])
+  createdAt    DateTime  @default(now())
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id])
+  title       String
+  message     String
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+}

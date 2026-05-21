@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Water OCR Billing MVP
 
-## Getting Started
+He thong ghi chi so dong ho nuoc bang OCR (Tesseract), tinh cuoc va hoa don PDF — Prisma + Postgres (Neon tren Vercel).
 
-First, run the development server:
+## Yeu cau
+
+- Node.js 20+
+- npm
+
+## Chay local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd water-ocr-billing
+cp .env.example .env
+# Dien DATABASE_URL + DIRECT_URL (Neon free branch hoac Postgres local)
+npm install
+npm run db:migrate:deploy   # hoac: npm run db:migrate (dev)
+npm run db:seed
+npm run dev -- -p 3001
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Mo [http://localhost:3001](http://localhost:3001) (mac dinh Next.js la 3000; neu port 3000 bi chiem, dung `-p 3001` nhu tren).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Lenh day du (port 3001):**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env && npm install && npm run db:migrate && npm run db:seed && npm run dev -- -p 3001
+```
 
-## Learn More
+### Tai khoan demo (sau seed)
 
-To learn more about Next.js, take a look at the following resources:
+| Vai tro   | So dien thoai | Mat khau    |
+|-----------|---------------|-------------|
+| Admin     | 0900000001    | 123456      |
+| Dan cu    | 0912345678    | 123456      |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Dan cu demo gan voi dong ho `DH00001`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+| Lenh | Mo ta |
+|------|--------|
+| `npm run dev` | Dev server (port 3000) |
+| `npm run dev -- -p 3001` | Dev server khi port 3000 bi chiem |
+| `npm run build` | Prisma generate + migrate deploy + Next build (Vercel) |
+| `npm run db:migrate:deploy` | Ap migration len Postgres (production) |
+| `npm test` | Unit test `anomaly.ts`, `billing.ts` |
+| `npm run db:migrate` | Ap dung migration Prisma (khuyen nghi) |
+| `npm run db:push` | Dong bo schema (dev nhanh, khong khuyen nghi production) |
+| `npm run db:seed` | Seed 250 ho + 3 thang lich su |
+| `npm run db:studio` | Prisma Studio |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Luong nghiep vu
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Dan cu**: `/resident/submit-reading` — upload anh → OCR (nguong 70%) → xac nhan/nhap tay → luu `MeterReading`
+2. **Admin**: `/admin/readings` — xem canh bao bat thuong
+3. **Admin**: `/admin/invoices` — Tao hoa don + PDF
+4. **Admin**: `/admin/payments` — Xac nhan thanh toan
+5. **Export**: `GET /api/exports/sheets` — CSV; `POST` — stub Google Sheets
+
+## Cau truc chinh
+
+- `lib/anomaly.ts`, `lib/billing.ts` — logic thuan
+- `lib/ocr.ts` — Tesseract server-side (Node runtime)
+- `lib/storage.ts` — adapter file local (`storage/`)
+- `prisma/schema.prisma` — 9 bang
+
+## Deploy (Vercel + Neon free)
+
+1. Push repo len GitHub (`git@github.com:siberbk585-coder/<repo>.git`).
+2. Vercel → Import project → **Storage → Neon** (chon **Free**).
+3. Environment variables (Production + Preview):
+   - `DATABASE_URL` — tu Neon (pooled)
+   - `DIRECT_URL` — `DATABASE_URL_UNPOOLED` tu Neon (cho migrate)
+   - `SESSION_SECRET` — chuoi ngau nhien dai
+   - `STORAGE_DIR` — `storage` (tam; anh/PDF co the mat sau redeploy — xem phase Blob sau)
+   - `OCR_CONFIDENCE_THRESHOLD`, `DEFAULT_UNIT_PRICE` — tuy chon
+4. Build: `npm run build` (gom `prisma migrate deploy`).
+5. Seed production **mot lan** (tuy chon): `npm run db:seed` voi env production.
+6. OCR (`/api/readings/ocr`) dung **Node.js runtime**.
+
+Khong hardcode duong dan tuyet doi — dung `process.cwd()` va bien moi truong trong `lib/env.ts`, `lib/storage.ts`.
+
+### Database
+
+- Provider: **PostgreSQL** (`prisma/schema.prisma`)
+- Migration: `prisma/migrations/20250517100000_init`
+- Quan ly: Prisma Studio, Neon Console
+- **Khong** dung SQLite tren Vercel

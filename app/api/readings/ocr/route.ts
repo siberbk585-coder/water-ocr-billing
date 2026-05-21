@@ -1,0 +1,63 @@
+import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
+import { runOcrOnImage, needsManualEntry } from "@/lib/ocr";
+import { saveBuffer } from "@/lib/storage";
+import { prisma } from "@/lib/db";
+import { getOldReading } from "@/lib/readings";
+import { ReadingStatus } from "@prisma/client";
+import { randomUUID } from "crypto";
+
+export const runtime = "nodejs";
+
+export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session?.householdId) {
+    return NextResponse.json({ error: "Chưa đăng nhập hoặc chưa gắn hộ dân" }, { status: 401 });
+  }
+
+  const form = await request.formData();
+  const file = form.get("image") as File | null;
+  const periodId = form.get("periodId") as string | null;
+  if (!file || !periodId) {
+    return NextResponse.json({ error: "Thiếu ảnh hoặc kỳ ghi nước" }, { status: 400 });
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const ocr = await runOcrOnImage(buffer);
+  const ext = file.name.split(".").pop() || "jpg";
+  const imagePath = await saveBuffer("readings", `${randomUUID()}.${ext}`, buffer);
+  const oldReading = await getOldReading(session.householdId, periodId);
+
+  const existing = await prisma.meterReading.findUnique({
+    where: {
+      householdId_periodId: {
+        householdId: session.householdId,
+        periodId,
+      },
+    },
+  });
+
+  const data = {
+    householdId: session.householdId,
+    periodId,
+    oldReading,
+    ocrValue: ocr.value,
+    confidence: ocr.confidence,
+    imagePath,
+    status: ReadingStatus.PENDING,
+    anomalyFlags: "[]",
+  };
+
+  const reading = existing
+    ? await prisma.meterReading.update({ where: { id: existing.id }, data })
+    : await prisma.meterReading.create({ data });
+
+  return NextResponse.json({
+    readingId: reading.id,
+    ocrValue: ocr.value,
+    rawText: ocr.rawText,
+    confidence: ocr.confidence,
+    needsManual: needsManualEntry(ocr.confidence),
+    oldReading,
+  });
+}

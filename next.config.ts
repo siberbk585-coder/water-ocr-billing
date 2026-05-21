@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Allow LAN-origin access to dev assets when testing on other devices.
+  allowedDevOrigins: ["192.168.137.20", "192.168.137.70"],
 };
 
 export default nextConfig;
