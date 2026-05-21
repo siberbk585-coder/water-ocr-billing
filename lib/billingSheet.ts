@@ -37,25 +37,6 @@ export async function getBillingPeriods() {
 }
 
 export async function getCollectionRoutes() {
-  // #region agent log
-  const cr = (prisma as { collectionRoute?: { findMany?: unknown } }).collectionRoute;
-  fetch("http://127.0.0.1:7316/ingest/d8ce1aea-1d6b-4416-9c7e-131c01f3079e", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "eeecce" },
-    body: JSON.stringify({
-      sessionId: "eeecce",
-      hypothesisId: "H2-H3",
-      location: "lib/billingSheet.ts:getCollectionRoutes",
-      message: "before collectionRoute.findMany",
-      data: {
-        collectionRouteIs: cr === undefined ? "undefined" : typeof cr,
-        findManyIs: cr?.findMany === undefined ? "undefined" : typeof cr.findMany,
-        prismaKeys: Object.keys(prisma).filter((k) => !k.startsWith("$")).slice(0, 15),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   return prisma.collectionRoute.findMany({
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });

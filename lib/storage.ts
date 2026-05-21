@@ -19,28 +19,7 @@ function storageRoot(): string {
 }
 
 export async function ensureStorageSubdir(subdir: string): Promise<string> {
-  const root = storageRoot();
-  const dir = path.join(root, subdir);
-  // #region agent log
-  fetch("http://127.0.0.1:7316/ingest/d8ce1aea-1d6b-4416-9c7e-131c01f3079e", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "eeecce" },
-    body: JSON.stringify({
-      sessionId: "eeecce",
-      hypothesisId: "H-storage",
-      location: "lib/storage.ts:ensureStorageSubdir",
-      message: "mkdir storage",
-      data: {
-        root,
-        dir,
-        serverless: isServerlessFs(),
-        cwd: process.cwd(),
-        vercel: process.env.VERCEL,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
+  const dir = path.join(storageRoot(), subdir);
   await fs.mkdir(dir, { recursive: true });
   return dir;
 }

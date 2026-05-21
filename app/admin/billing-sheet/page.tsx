@@ -17,58 +17,7 @@ export default async function BillingSheetPage({
   searchParams: Promise<{ period?: string; route?: string; view?: string }>;
 }) {
   const { period: periodId, route: routeParam, view } = await searchParams;
-  // #region agent log
-  fetch("http://127.0.0.1:7316/ingest/d8ce1aea-1d6b-4416-9c7e-131c01f3079e", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "eeecce" },
-    body: JSON.stringify({
-      sessionId: "eeecce",
-      hypothesisId: "H5",
-      location: "app/admin/billing-sheet/page.tsx:entry",
-      message: "BillingSheetPage load start",
-      data: { periodId, routeParam, view },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-  let periods: Awaited<ReturnType<typeof getBillingPeriods>>;
-  let routes: Awaited<ReturnType<typeof getCollectionRoutes>>;
-  try {
-    [periods, routes] = await Promise.all([getBillingPeriods(), getCollectionRoutes()]);
-    // #region agent log
-    fetch("http://127.0.0.1:7316/ingest/d8ce1aea-1d6b-4416-9c7e-131c01f3079e", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "eeecce" },
-      body: JSON.stringify({
-        sessionId: "eeecce",
-        hypothesisId: "H5",
-        location: "app/admin/billing-sheet/page.tsx:success",
-        message: "data loaded",
-        data: { periodsCount: periods.length, routesCount: routes.length },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-  } catch (err) {
-    // #region agent log
-    fetch("http://127.0.0.1:7316/ingest/d8ce1aea-1d6b-4416-9c7e-131c01f3079e", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "eeecce" },
-      body: JSON.stringify({
-        sessionId: "eeecce",
-        hypothesisId: "H1-H5",
-        location: "app/admin/billing-sheet/page.tsx:error",
-        message: "load failed",
-        data: {
-          errorName: err instanceof Error ? err.name : "unknown",
-          errorMessage: err instanceof Error ? err.message : String(err),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
-    throw err;
-  }
+  const [periods, routes] = await Promise.all([getBillingPeriods(), getCollectionRoutes()]);
 
   const activePeriod =
     periods.find((p) => p.id === periodId) ??
