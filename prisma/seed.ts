@@ -1,6 +1,7 @@
 import { PrismaClient, ReadingStatus, UserRole, InputMethod } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import {
+  COLLECTION_ROUTES,
   PRICE_GROUPS,
   adminDisplayName,
   demoResidentName,
@@ -23,6 +24,7 @@ async function main() {
   await prisma.notification.deleteMany();
   await prisma.meterReading.deleteMany();
   await prisma.household.deleteMany();
+  await prisma.collectionRoute.deleteMany();
   await prisma.user.deleteMany();
   await prisma.billingPeriod.deleteMany();
   await prisma.priceGroup.deleteMany();
@@ -31,6 +33,14 @@ async function main() {
     PRICE_GROUPS.map((g) =>
       prisma.priceGroup.create({
         data: { code: g.code, name: g.name, unitPrice: g.unitPrice },
+      })
+    )
+  );
+
+  const routes = await Promise.all(
+    COLLECTION_ROUTES.map((r) =>
+      prisma.collectionRoute.create({
+        data: { code: r.code, name: r.name, sortOrder: r.sortOrder },
       })
     )
   );
@@ -74,7 +84,19 @@ async function main() {
     },
   });
 
+  const routeCount = routes.length;
+  const perRoute = Math.ceil(HOUSEHOLD_COUNT / routeCount);
+
   for (let i = 1; i <= HOUSEHOLD_COUNT; i++) {
+    const routeIndex = Math.min(routeCount - 1, Math.floor((i - 1) / perRoute));
+    const route = routes[routeIndex];
+    const routeSeq = ((i - 1) % perRoute) + 1;
+    const routePrefix = route.code === "212" ? "212" : route.code.replace(/-/g, "").slice(0, 3).toUpperCase();
+    const mkh =
+      route.code === "212"
+        ? `212${String(routeSeq).padStart(3, "0")}`
+        : `${routePrefix}${String(routeSeq).padStart(3, "0")}`;
+
     const meterCode = `DH${String(i).padStart(5, "0")}`;
     const baseReading = 100 + (i % 80);
     const pg = priceGroups[i % 2];
@@ -82,13 +104,15 @@ async function main() {
 
     const household = await prisma.household.create({
       data: {
-        householdCode: `HH${String(i).padStart(5, "0")}`,
+        householdCode: mkh,
         meterCode,
         address: randomAddress(i),
         residentName: i === 1 ? demoResidentName() : randomResidentName(i),
         contactPhone: i === 1 ? "0912345678" : undefined,
         priceGroupId: pg.id,
         userId,
+        collectionRouteId: route.id,
+        routeSortOrder: routeSeq,
       },
     });
 
@@ -115,9 +139,9 @@ async function main() {
     }
   }
 
-  console.log(`Đã seed ${HOUSEHOLD_COUNT} hộ dân, ${periods.length} kỳ ghi nước`);
+  console.log(`Đã seed ${HOUSEHOLD_COUNT} hộ dân, ${routes.length} tuyến, ${periods.length} kỳ`);
   console.log("Tài khoản quản trị: 0900000001 / 123456");
-  console.log("Tài khoản hộ dân: 0912345678 / 123456 (đồng hồ DH00001)");
+  console.log("Tài khoản hộ dân: 0912345678 / 123456 (MKH 212001)");
   console.log(`Kỳ hiện tại: ${periodLabel(currentPeriod.year, currentPeriod.month)}`);
 }
 

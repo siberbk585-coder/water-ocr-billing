@@ -10,9 +10,10 @@ import type { AnomalyCode } from "./anomaly";
 export const appTitle = "Hệ thống ghi chỉ số & hóa đơn nước";
 
 export const adminNav = [
+  { href: "/admin/billing-sheet", label: "Bảng ghi chỉ số" },
   { href: "/admin/dashboard", label: "Tổng quan" },
+  { href: "/admin/routes", label: "Tuyến thu" },
   { href: "/admin/households", label: "Hộ dân" },
-  { href: "/admin/readings", label: "Chỉ số theo hộ" },
   { href: "/admin/invoices", label: "Hóa đơn" },
   { href: "/admin/payments", label: "Thanh toán" },
   { href: "/admin/export", label: "Xuất dữ liệu" },
@@ -80,6 +81,7 @@ export function periodStatusLabel(status: import("@prisma/client").PeriodStatus)
 export function auditActionLabel(action: string): string {
   const map: Record<string, string> = {
     READING_CONFIRMED: "Xác nhận chỉ số",
+    READING_SUBMITTED: "Hộ gửi chỉ số",
     INVOICES_GENERATED: "Tạo hóa đơn",
     PAYMENT_CONFIRMED: "Xác nhận thanh toán",
     SHEETS_EXPORT: "Xuất báo cáo",

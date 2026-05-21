@@ -16,6 +16,6 @@ export async function requireAdmin(): Promise<SessionUser> {
 
 export async function requireResident(): Promise<SessionUser> {
   const session = await requireAuth();
-  if (session.role !== UserRole.RESIDENT) redirect("/admin/dashboard");
+  if (session.role !== UserRole.RESIDENT) redirect("/admin/billing-sheet");
   return session;
 }

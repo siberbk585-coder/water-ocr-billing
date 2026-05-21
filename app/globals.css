@@ -184,3 +184,9 @@ a {
 .card h3 {
   color: var(--foreground);
 }
+
+.billing-sheet-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}

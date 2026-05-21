@@ -1,6 +1,8 @@
 import type { InputMethod, ReadingStatus } from "@prisma/client";
 import * as XLSX from "xlsx";
 import { parseAnomalyFlags } from "./anomaly";
+import { loadBillingSheetRows, loadRouteSummaries } from "./billingSheet";
+import { formatCurrency } from "./billing";
 import { prisma } from "./db";
 import {
   anomalyLabel,
@@ -207,4 +209,72 @@ export function exportFilename(): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `bao-cao-tong-hop-${y}${m}${day}.xlsx`;
+}
+
+function sheetNameSafe(name: string): string {
+  const s = name.replace(/[\\/*?:[\]]/g, "").slice(0, 31);
+  return s || "Sheet";
+}
+
+/** Workbook giống Excel vận hành: mỗi tuyến một sheet + TỔNG HỢP. */
+export async function buildPeriodRouteWorkbook(periodId: string): Promise<XLSX.WorkBook> {
+  const period = await prisma.billingPeriod.findUniqueOrThrow({ where: { id: periodId } });
+  const routes = await prisma.collectionRoute.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+  const wb = XLSX.utils.book_new();
+  const periodTitle = `${period.month}/${period.year}`;
+
+  for (const route of routes) {
+    const rows = await loadBillingSheetRows(periodId, route.id);
+    const sheetRows = rows.map((r, i) => ({
+      STT: r.routeSortOrder ?? i + 1,
+      "Họ và tên": r.residentName,
+      SĐT: r.contactPhone ?? "",
+      MKH: r.householdCode,
+      CSC: r.oldReading,
+      CSM: r.csm ?? "",
+      "Tiêu thụ (m³)":
+        r.usageM3 ?? (r.csm != null ? Math.max(0, (r.csm ?? 0) - r.oldReading) : ""),
+      TT:
+        r.totalAmount != null && r.totalAmount > 0
+          ? r.totalAmount
+          : r.usageM3 === 0
+            ? "—"
+            : "",
+    }));
+    XLSX.utils.book_append_sheet(
+      wb,
+      sheetFromRows(sheetRows),
+      sheetNameSafe(`${route.name} (${periodTitle})`)
+    );
+  }
+
+  const summaries = await loadRouteSummaries(periodId);
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheetFromRows(
+      summaries.map((s) => ({
+        Tuyến: s.routeName,
+        "Số hộ": s.householdCount,
+        "Đã ghi CSM": s.recordedCount,
+        "Chờ duyệt": s.pendingCount,
+        "Tổng STT (m³)": s.totalUsageM3,
+        "Tổng TT (VND)": s.totalAmount,
+      }))
+    ),
+    sheetNameSafe("TONG HOP")
+  );
+
+  return wb;
+}
+
+export async function buildPeriodRouteExportBuffer(periodId: string): Promise<Buffer> {
+  const wb = await buildPeriodRouteWorkbook(periodId);
+  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+export function periodExportFilename(month: number, year: number): string {
+  const m = String(month).padStart(2, "0");
+  return `nuoc-thang-${m}-${year}.xlsx`;
 }

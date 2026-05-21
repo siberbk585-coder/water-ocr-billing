@@ -97,7 +97,7 @@ export async function confirmReading(params: {
   });
 }
 
-/** Gửi ảnh + chỉ số nhập tay — không cần OCR (luồng chính MVP). */
+/** Hộ dân gửi ảnh + CSM — chờ nhân viên duyệt trên bảng tuyến. */
 export async function submitManualReading(params: {
   householdId: string;
   periodId: string;
@@ -111,6 +111,67 @@ export async function submitManualReading(params: {
     saveBuffer("readings", `${randomUUID()}.${params.fileExt}`, params.imageBuffer),
   ]);
 
+  if (params.confirmedValue < oldReading) {
+    throw new Error(`CSM phải ≥ CSC (${oldReading})`);
+  }
+
+  const existing = await prisma.meterReading.findUnique({
+    where: {
+      householdId_periodId: {
+        householdId: params.householdId,
+        periodId: params.periodId,
+      },
+    },
+  });
+
+  const reading = existing
+    ? await prisma.meterReading.update({
+        where: { id: existing.id },
+        data: {
+          oldReading,
+          imagePath,
+          confirmedValue: params.confirmedValue,
+          inputMethod: InputMethod.MANUAL,
+          status: ReadingStatus.PENDING,
+          usageM3: null,
+          anomalyFlags: "[]",
+          confirmedAt: null,
+        },
+      })
+    : await prisma.meterReading.create({
+        data: {
+          householdId: params.householdId,
+          periodId: params.periodId,
+          oldReading,
+          imagePath,
+          confirmedValue: params.confirmedValue,
+          inputMethod: InputMethod.MANUAL,
+          status: ReadingStatus.PENDING,
+          anomalyFlags: "[]",
+        },
+      });
+
+  if (params.actorId) {
+    await logAudit({
+      actorId: params.actorId,
+      action: "READING_SUBMITTED",
+      entity: "MeterReading",
+      entityId: reading.id,
+    });
+  }
+
+  return reading;
+}
+
+/** Nhân viên nhập/xác nhận CSM trên bảng tuyến — không bắt buộc ảnh. */
+export async function adminUpsertReading(params: {
+  householdId: string;
+  periodId: string;
+  confirmedValue: number;
+  actorId: string;
+}) {
+  const oldReading = await getOldReading(params.householdId, params.periodId);
+
   const existing = await prisma.meterReading.findUnique({
     where: {
       householdId_periodId: {
@@ -123,19 +184,13 @@ export async function submitManualReading(params: {
   const draft = existing
     ? await prisma.meterReading.update({
         where: { id: existing.id },
-        data: {
-          oldReading,
-          imagePath,
-          status: ReadingStatus.PENDING,
-          anomalyFlags: "[]",
-        },
+        data: { oldReading, anomalyFlags: "[]" },
       })
     : await prisma.meterReading.create({
         data: {
           householdId: params.householdId,
           periodId: params.periodId,
           oldReading,
-          imagePath,
           status: ReadingStatus.PENDING,
           anomalyFlags: "[]",
         },
@@ -144,18 +199,19 @@ export async function submitManualReading(params: {
   const reading = await confirmReading({
     readingId: draft.id,
     confirmedValue: params.confirmedValue,
-    inputMethod: InputMethod.MANUAL,
+    inputMethod:
+      existing?.status === ReadingStatus.PENDING && existing.imagePath
+        ? InputMethod.OCR_EDITED
+        : InputMethod.MANUAL,
     actorId: params.actorId,
   });
 
-  if (params.actorId) {
-    await logAudit({
-      actorId: params.actorId,
-      action: "READING_CONFIRMED",
-      entity: "MeterReading",
-      entityId: reading.id,
-    });
-  }
+  await logAudit({
+    actorId: params.actorId,
+    action: "READING_CONFIRMED",
+    entity: "MeterReading",
+    entityId: reading.id,
+  });
 
   return reading;
 }

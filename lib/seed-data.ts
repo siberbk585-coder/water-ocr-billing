@@ -5,6 +5,18 @@ export const PRICE_GROUPS = [
   { code: "B", name: "Kinh doanh", unitPrice: 22000 },
 ] as const;
 
+/** Tuyến thu mẫu — giống tab Excel */
+export const COLLECTION_ROUTES = [
+  { code: "212", name: "ĐƯỜNG 212", sortOrder: 1 },
+  { code: "bang-vien", name: "BẢNG VIÊN", sortOrder: 2 },
+  { code: "doc-hanh", name: "ĐỘC HÀNH", sortOrder: 3 },
+  { code: "xom-10", name: "XÓM 10", sortOrder: 4 },
+  { code: "dong-quy", name: "ĐÔNG QUÝ", sortOrder: 5 },
+  { code: "cam-khe", name: "CAM KHÊ", sortOrder: 6 },
+  { code: "minh-thi", name: "MINH THỊ", sortOrder: 7 },
+  { code: "doc-hau", name: "DỘC HẬU", sortOrder: 8 },
+] as const;
+
 export const STREETS = [
   "Lê Lợi",
   "Nguyễn Huệ",

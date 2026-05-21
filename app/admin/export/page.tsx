@@ -11,7 +11,21 @@ export default async function AdminExportPage() {
 
       <div className="card max-w-lg space-y-4">
         <div>
-          <h2 className="mb-2 font-semibold">Báo cáo tổng hợp (khuyến nghị)</h2>
+          <h2 className="mb-2 font-semibold">Excel theo tuyến (giống file thu nước)</h2>
+          <p className="mb-3 text-sm text-slate-600">
+            Mỗi tuyến một sheet, cột TT / Họ tên / MKH / CSC / CSM / STT / TT + sheet TỔNG HỢP. Tải
+            từ trang{" "}
+            <Link href="/admin/billing-sheet" className="text-[var(--primary)] hover:underline">
+              Bảng ghi chỉ số
+            </Link>{" "}
+            (nút Tải Excel kỳ này).
+          </p>
+        </div>
+
+        <hr className="border-slate-200" />
+
+        <div>
+          <h2 className="mb-2 font-semibold">Báo cáo tổng hợp (kỹ thuật)</h2>
           <p className="mb-3 text-sm text-slate-600">
             Một file Excel chứa toàn bộ dữ liệu hiện có trong hệ thống.
           </p>
