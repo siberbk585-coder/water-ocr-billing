@@ -61,6 +61,37 @@ a {
   }
 }
 
+.period-accordion {
+  @apply overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm;
+}
+
+.period-accordion-summary {
+  @apply flex cursor-pointer list-none items-center gap-3 px-4 py-3 transition hover:bg-[var(--card-muted)];
+}
+
+.period-accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.period-accordion[open] .period-chevron {
+  transform: rotate(180deg);
+}
+
+.period-chevron {
+  @apply inline-block shrink-0 text-xs transition-transform duration-200;
+}
+
+.period-accordion-body {
+  @apply border-t border-[var(--border)] bg-[var(--card-muted)]/40 px-4 py-4;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(7rem, 10rem) 1fr;
+  gap: 0.35rem 1rem;
+  align-items: baseline;
+}
+
 .btn {
   @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
 }

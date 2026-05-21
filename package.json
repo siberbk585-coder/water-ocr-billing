@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/ensure-postgres-env.mjs && next dev",
+    "dev:env": "node scripts/ensure-postgres-env.mjs",
     "build": "node scripts/prepare-db-env.mjs && prisma generate && prisma migrate deploy && next build",
     "db:migrate:deploy": "prisma migrate deploy",
     "start": "next start",
@@ -25,6 +26,7 @@
     "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "sharp": "^0.34.5",
     "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"

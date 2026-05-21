@@ -1,7 +1,10 @@
 import { InputMethod, ReadingStatus } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { prisma } from "./db";
 import { detectAnomalies } from "./anomaly";
 import { calculateUsage } from "./billing";
+import { saveBuffer } from "./storage";
+import { logAudit } from "./audit";
 
 export async function getAvgUsage3Months(
   householdId: string,
@@ -92,4 +95,67 @@ export async function confirmReading(params: {
       confirmedAt: new Date(),
     },
   });
+}
+
+/** Gửi ảnh + chỉ số nhập tay — không cần OCR (luồng chính MVP). */
+export async function submitManualReading(params: {
+  householdId: string;
+  periodId: string;
+  confirmedValue: number;
+  imageBuffer: Buffer;
+  fileExt: string;
+  actorId?: string;
+}) {
+  const [oldReading, imagePath] = await Promise.all([
+    getOldReading(params.householdId, params.periodId),
+    saveBuffer("readings", `${randomUUID()}.${params.fileExt}`, params.imageBuffer),
+  ]);
+
+  const existing = await prisma.meterReading.findUnique({
+    where: {
+      householdId_periodId: {
+        householdId: params.householdId,
+        periodId: params.periodId,
+      },
+    },
+  });
+
+  const draft = existing
+    ? await prisma.meterReading.update({
+        where: { id: existing.id },
+        data: {
+          oldReading,
+          imagePath,
+          status: ReadingStatus.PENDING,
+          anomalyFlags: "[]",
+        },
+      })
+    : await prisma.meterReading.create({
+        data: {
+          householdId: params.householdId,
+          periodId: params.periodId,
+          oldReading,
+          imagePath,
+          status: ReadingStatus.PENDING,
+          anomalyFlags: "[]",
+        },
+      });
+
+  const reading = await confirmReading({
+    readingId: draft.id,
+    confirmedValue: params.confirmedValue,
+    inputMethod: InputMethod.MANUAL,
+    actorId: params.actorId,
+  });
+
+  if (params.actorId) {
+    await logAudit({
+      actorId: params.actorId,
+      action: "READING_CONFIRMED",
+      entity: "MeterReading",
+      entityId: reading.id,
+    });
+  }
+
+  return reading;
 }

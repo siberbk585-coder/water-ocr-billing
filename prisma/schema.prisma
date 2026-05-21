@@ -37,6 +37,11 @@ enum PeriodStatus {
   CLOSED
 }
 
+enum HouseholdStatus {
+  ACTIVE
+  INACTIVE
+}
+
 model User {
   id           String     @id @default(cuid())
   phone        String     @unique
@@ -60,18 +65,22 @@ model PriceGroup {
 }
 
 model Household {
-  id           String         @id @default(cuid())
-  meterCode    String         @unique
-  address      String
-  residentName String
-  userId       String?        @unique
-  user         User?          @relation(fields: [userId], references: [id])
-  priceGroupId String
-  priceGroup   PriceGroup     @relation(fields: [priceGroupId], references: [id])
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  readings     MeterReading[]
-  invoices     Invoice[]
+  id            String          @id @default(cuid())
+  householdCode String          @unique
+  meterCode     String          @unique
+  address       String
+  residentName  String
+  contactPhone  String?
+  status        HouseholdStatus @default(ACTIVE)
+  note          String?
+  userId        String?         @unique
+  user          User?           @relation(fields: [userId], references: [id])
+  priceGroupId  String
+  priceGroup    PriceGroup      @relation(fields: [priceGroupId], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  readings      MeterReading[]
+  invoices      Invoice[]
   notifications Notification[]
 }
 

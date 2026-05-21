@@ -1,5 +1,6 @@
 import { requireResident } from "@/lib/guards";
 import { prisma } from "@/lib/db";
+import { getOldReading } from "@/lib/readings";
 import { SubmitReadingClient } from "./SubmitReadingClient";
 import { formatPeriod } from "@/lib/vi";
 
@@ -32,7 +33,10 @@ export default async function SubmitReadingPage() {
         )}
       </div>
       {currentPeriod ? (
-        <SubmitReadingClient periodId={currentPeriod.id} />
+        <SubmitReadingClient
+          periodId={currentPeriod.id}
+          oldReading={await getOldReading(user.householdId, currentPeriod.id)}
+        />
       ) : (
         <p>Chưa có kỳ tính cước.</p>
       )}

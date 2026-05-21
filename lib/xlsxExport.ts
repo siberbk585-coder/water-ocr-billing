@@ -37,7 +37,7 @@ export async function buildFullExportWorkbook(): Promise<XLSX.WorkBook> {
     paidInvoices,
   ] = await Promise.all([
     prisma.household.findMany({
-      orderBy: { meterCode: "asc" },
+      orderBy: { householdCode: "asc" },
       include: { priceGroup: true, user: true },
     }),
     prisma.billingPeriod.findMany({ orderBy: [{ year: "desc" }, { month: "desc" }] }),
@@ -88,6 +88,7 @@ export async function buildFullExportWorkbook(): Promise<XLSX.WorkBook> {
     wb,
     sheetFromRows(
       households.map((h) => ({
+        "Mã hộ": h.householdCode,
         "Mã đồng hồ": h.meterCode,
         "Tên hộ dân": h.residentName,
         "Địa chỉ": h.address,
@@ -120,6 +121,7 @@ export async function buildFullExportWorkbook(): Promise<XLSX.WorkBook> {
       readings.map((r) => {
         const flags = parseAnomalyFlags(r.anomalyFlags).map(anomalyLabel);
         return {
+          "Mã hộ": r.household.householdCode,
           "Mã đồng hồ": r.household.meterCode,
           "Tên hộ dân": r.household.residentName,
           "Kỳ": formatPeriod(r.period.month, r.period.year),
@@ -143,6 +145,7 @@ export async function buildFullExportWorkbook(): Promise<XLSX.WorkBook> {
     wb,
     sheetFromRows(
       invoices.map((inv) => ({
+        "Mã hộ": inv.household.householdCode,
         "Mã đồng hồ": inv.household.meterCode,
         "Tên hộ dân": inv.household.residentName,
         "Kỳ": formatPeriod(inv.period.month, inv.period.year),
@@ -162,6 +165,7 @@ export async function buildFullExportWorkbook(): Promise<XLSX.WorkBook> {
     wb,
     sheetFromRows(
       payments.map((p) => ({
+        "Mã hộ": p.invoice.household.householdCode,
         "Mã đồng hồ": p.invoice.household.meterCode,
         "Kỳ": formatPeriod(p.invoice.period.month, p.invoice.period.year),
         "Số tiền (VND)": p.amount,

@@ -23,10 +23,13 @@ export async function POST(request: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const ocr = await runOcrOnImage(buffer);
   const ext = file.name.split(".").pop() || "jpg";
-  const imagePath = await saveBuffer("readings", `${randomUUID()}.${ext}`, buffer);
-  const oldReading = await getOldReading(session.householdId, periodId);
+
+  const [ocr, oldReading, imagePath] = await Promise.all([
+    runOcrOnImage(buffer),
+    getOldReading(session.householdId, periodId),
+    saveBuffer("readings", `${randomUUID()}.${ext}`, buffer),
+  ]);
 
   const existing = await prisma.meterReading.findUnique({
     where: {

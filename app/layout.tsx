@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Ghi chỉ số & hóa đơn nước",
-  description: "Hệ thống ghi chỉ số đồng hồ nước bằng OCR",
+  description: "Hệ thống ghi chỉ số đồng hồ nước — chụp ảnh và nhập tay",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

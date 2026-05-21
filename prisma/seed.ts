@@ -52,7 +52,11 @@ async function main() {
   for (let i = 3; i >= 1; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const p = await prisma.billingPeriod.create({
-      data: { year: d.getFullYear(), month: d.getMonth() + 1 },
+      data: {
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        status: "CLOSED",
+      },
     });
     periods.push(p);
   }
@@ -78,9 +82,11 @@ async function main() {
 
     const household = await prisma.household.create({
       data: {
+        householdCode: `HH${String(i).padStart(5, "0")}`,
         meterCode,
         address: randomAddress(i),
         residentName: i === 1 ? demoResidentName() : randomResidentName(i),
+        contactPhone: i === 1 ? "0912345678" : undefined,
         priceGroupId: pg.id,
         userId,
       },

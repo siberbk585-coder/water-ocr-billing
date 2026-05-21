@@ -1,4 +1,5 @@
 import type {
+  HouseholdStatus,
   InvoiceStatus,
   InputMethod,
   ReadingStatus,
@@ -10,10 +11,10 @@ export const appTitle = "Hệ thống ghi chỉ số & hóa đơn nước";
 
 export const adminNav = [
   { href: "/admin/dashboard", label: "Tổng quan" },
-  { href: "/admin/readings", label: "Chỉ số" },
+  { href: "/admin/households", label: "Hộ dân" },
+  { href: "/admin/readings", label: "Chỉ số theo hộ" },
   { href: "/admin/invoices", label: "Hóa đơn" },
   { href: "/admin/payments", label: "Thanh toán" },
-  { href: "/admin/households", label: "Hộ dân" },
   { href: "/admin/export", label: "Xuất dữ liệu" },
 ] as const;
 
@@ -66,6 +67,14 @@ export function anomalyLabel(code: AnomalyCode): string {
 
 export function userRoleLabel(role: UserRole): string {
   return role === "ADMIN" ? "Quản trị" : "Hộ dân";
+}
+
+export function householdStatusLabel(status: HouseholdStatus): string {
+  return status === "ACTIVE" ? "Đang sử dụng" : "Ngừng";
+}
+
+export function periodStatusLabel(status: import("@prisma/client").PeriodStatus): string {
+  return status === "OPEN" ? "Đang mở" : "Đã đóng";
 }
 
 export function auditActionLabel(action: string): string {

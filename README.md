@@ -1,6 +1,6 @@
 # Water OCR Billing MVP
 
-He thong ghi chi so dong ho nuoc bang OCR (Tesseract), tinh cuoc va hoa don PDF — Prisma + Postgres (Neon tren Vercel).
+He thong ghi chi so dong ho nuoc: **chup anh + nhap tay**, tinh cuoc va hoa don PDF — Prisma + Postgres (Neon tren Vercel).
 
 ## Yeu cau
 
@@ -36,6 +36,10 @@ cp .env.example .env && npm install && npm run db:migrate && npm run db:seed && 
 
 Dan cu demo gan voi dong ho `DH00001`.
 
+### Doc OCR tu dong (khong dung trong MVP)
+
+Chi de tham khao sau: [docs/OCR_MODEL_COLAB.md](docs/OCR_MODEL_COLAB.md)
+
 ## Scripts
 
 | Lenh | Mo ta |
@@ -52,7 +56,7 @@ Dan cu demo gan voi dong ho `DH00001`.
 
 ## Luong nghiep vu
 
-1. **Dan cu**: `/resident/submit-reading` — upload anh → OCR (nguong 70%) → xac nhan/nhap tay → luu `MeterReading`
+1. **Dan cu**: `/resident/submit-reading` — chup anh + nhap chi so → `POST /api/readings/submit`
 2. **Admin**: `/admin/readings` — xem canh bao bat thuong
 3. **Admin**: `/admin/invoices` — Tao hoa don + PDF
 4. **Admin**: `/admin/payments` — Xac nhan thanh toan
@@ -61,7 +65,7 @@ Dan cu demo gan voi dong ho `DH00001`.
 ## Cau truc chinh
 
 - `lib/anomaly.ts`, `lib/billing.ts` — logic thuan
-- `lib/ocr.ts` — Tesseract server-side (Node runtime)
+- `app/api/readings/submit` — Luu anh + chi so nhap tay (luong chinh)
 - `lib/storage.ts` — adapter file local (`storage/`)
 - `prisma/schema.prisma` — 9 bang
 
@@ -77,7 +81,7 @@ Dan cu demo gan voi dong ho `DH00001`.
    - `OCR_CONFIDENCE_THRESHOLD`, `DEFAULT_UNIT_PRICE` — tuy chon
 4. Build: `npm run build` (gom `prisma migrate deploy`).
 5. Seed production **mot lan** (tuy chon): `npm run db:seed` voi env production.
-6. OCR (`/api/readings/ocr`) dung **Node.js runtime**.
+6. Anh luu tai `storage/readings/` (local; tren Vercel co the mat sau redeploy — xem phase Blob).
 
 Khong hardcode duong dan tuyet doi — dung `process.cwd()` va bien moi truong trong `lib/env.ts`, `lib/storage.ts`.
 

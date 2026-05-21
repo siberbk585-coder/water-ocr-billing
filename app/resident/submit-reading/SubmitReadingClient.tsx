@@ -2,144 +2,108 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { compressImageForUpload } from "@/lib/imageClient";
 
-type OcrResponse = {
-  readingId: string;
-  ocrValue: number | null;
-  rawText: string;
-  confidence: number;
-  needsManual: boolean;
+export function SubmitReadingClient({
+  periodId,
+  oldReading,
+}: {
+  periodId: string;
   oldReading: number;
-};
-
-export function SubmitReadingClient({ periodId }: { periodId: string }) {
+}) {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
-  const [ocr, setOcr] = useState<OcrResponse | null>(null);
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function runOcr() {
-    if (!file) return;
+  async function submit() {
+    if (!file) {
+      setError("Vui lòng chụp hoặc chọn ảnh đồng hồ.");
+      return;
+    }
+    const confirmedValue = parseFloat(value);
+    if (Number.isNaN(confirmedValue) || confirmedValue <= 0) {
+      setError("Nhập chỉ số mới hợp lệ (số dương).");
+      return;
+    }
+    if (confirmedValue < oldReading) {
+      setError(`Chỉ số mới phải ≥ chỉ số cũ (${oldReading}).`);
+      return;
+    }
+
     setLoading(true);
     setError("");
-    const fd = new FormData();
-    fd.append("image", file);
-    fd.append("periodId", periodId);
-    const res = await fetch("/api/readings/ocr", { method: "POST", body: fd });
-    setLoading(false);
-    if (!res.ok) {
-      setError("OCR thất bại. Vui lòng thử lại.");
-      return;
-    }
-    const data = (await res.json()) as OcrResponse;
-    setOcr(data);
-    if (data.ocrValue != null && !data.needsManual) {
-      setValue(String(data.ocrValue));
-    } else {
-      setValue("");
-    }
-  }
+    try {
+      const uploadFile = await compressImageForUpload(file);
+      const fd = new FormData();
+      fd.append("image", uploadFile);
+      fd.append("periodId", periodId);
+      fd.append("confirmedValue", String(confirmedValue));
 
-  async function confirm(inputMethod: "OCR_CONFIRMED" | "OCR_EDITED" | "MANUAL") {
-    if (!ocr) return;
-    const confirmedValue = parseFloat(value);
-    if (Number.isNaN(confirmedValue)) {
-      setError("Nhập chỉ số hợp lệ");
-      return;
-    }
-    setLoading(true);
-    const res = await fetch("/api/readings/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ readingId: ocr.readingId, confirmedValue, inputMethod }),
-    });
-    setLoading(false);
-    if (!res.ok) {
+      const res = await fetch("/api/readings/submit", { method: "POST", body: fd });
       const body = await res.json();
-      setError(body.error ?? "Không lưu được");
-      return;
+      if (!res.ok) {
+        setError(body.error ?? "Không lưu được");
+        return;
+      }
+      router.refresh();
+      setFile(null);
+      setValue("");
+      alert("Đã gửi chỉ số thành công!");
+    } catch {
+      setError("Lỗi kết nối. Thử lại.");
+    } finally {
+      setLoading(false);
     }
-    router.refresh();
-    setOcr(null);
-    setFile(null);
-    setValue("");
-    alert("Đã lưu chỉ số thành công!");
   }
 
   return (
     <div className="card space-y-4">
+      <p className="text-sm text-[var(--muted)]">
+        Chụp ảnh đồng hồ làm bằng chứng, rồi nhập <strong>chỉ số mới</strong> đang hiển thị trên mặt
+        đồng hồ.
+      </p>
+      <p className="rounded-lg bg-[var(--primary-soft)] px-3 py-2 text-sm text-[var(--primary-dark)]">
+        Chỉ số kỳ trước: <strong>{oldReading} m³</strong>
+      </p>
+
       <div>
-        <label className="label">Ảnh đồng hồ</label>
+        <label className="label">Ảnh đồng hồ (bắt buộc)</label>
         <input
           type="file"
           accept="image/*"
+          capture="environment"
           className="input"
           onChange={(e) => {
             setFile(e.target.files?.[0] ?? null);
-            setOcr(null);
+            setError("");
           }}
         />
       </div>
-      <button type="button" className="btn btn-primary" disabled={!file || loading} onClick={runOcr}>
-        {loading ? "Đang quét OCR..." : "Quét OCR"}
+
+      <div>
+        <label className="label">Chỉ số mới trên đồng hồ (m³)</label>
+        <input
+          className="input"
+          type="number"
+          step="0.01"
+          min={oldReading}
+          placeholder={`Ví dụ: ${oldReading + 10}`}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+      </div>
+
+      <button
+        type="button"
+        className="btn btn-primary w-full"
+        disabled={!file || !value || loading}
+        onClick={submit}
+      >
+        {loading ? "Đang lưu..." : "Gửi chỉ số"}
       </button>
 
-      {ocr && (
-        <div className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
-          <p>
-            <strong>Chỉ số cũ:</strong> {ocr.oldReading} m³
-          </p>
-          <p>
-            <strong>OCR:</strong> {ocr.ocrValue ?? "—"} (độ tin cậy {ocr.confidence.toFixed(1)}%)
-          </p>
-          {ocr.needsManual ? (
-            <p className="text-[var(--warning)]">Độ tin cậy &lt; 70% — vui lòng nhập tay.</p>
-          ) : (
-            <p className="text-[var(--accent)]">Có thể xác nhận hoặc chỉnh sửa.</p>
-          )}
-          <div>
-            <label className="label">Chỉ số xác nhận (m³)</label>
-            <input
-              className="input"
-              type="number"
-              step="0.1"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              required
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {!ocr.needsManual && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={loading}
-                onClick={() => confirm("OCR_CONFIRMED")}
-              >
-                Xác nhận OCR
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={loading}
-              onClick={() =>
-                confirm(
-                  ocr.needsManual
-                    ? "MANUAL"
-                    : ocr.ocrValue?.toString() === value
-                      ? "OCR_CONFIRMED"
-                      : "OCR_EDITED"
-                )
-              }
-            >
-              {ocr.needsManual ? "Lưu nhập tay" : "Lưu (đã chỉnh)"}
-            </button>
-          </div>
-        </div>
-      )}
       {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
     </div>
   );

@@ -21,6 +21,7 @@ npm-debug.log*
 .env
 .env.local
 .env.*.local
+*.traineddata
 !.env.example
 
 # database & uploads

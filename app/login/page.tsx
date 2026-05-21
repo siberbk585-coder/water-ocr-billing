@@ -14,9 +14,9 @@ export default async function LoginPage() {
             <h1 className="mb-2 text-2xl font-bold text-[var(--foreground)]">Đăng nhập</h1>
             <p className="text-sm text-[var(--muted)]">Hệ thống ghi chỉ số & hóa đơn nước</p>
           </div>
-          <span className="rounded-lg bg-[var(--primary-soft)] px-3 py-1 text-xs font-semibold text-[var(--primary-dark)]">
-            OCR
-          </span>
+            <span className="rounded-lg bg-[var(--primary-soft)] px-3 py-1 text-xs font-semibold text-[var(--primary-dark)]">
+              BQL
+            </span>
         </div>
         <LoginForm />
         <p className="mt-4 rounded-lg bg-[var(--card-muted)] p-3 text-xs leading-5 text-[var(--muted)]">
