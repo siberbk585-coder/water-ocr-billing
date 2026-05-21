@@ -7,16 +7,18 @@ import { compressImageForUpload } from "@/lib/imageClient";
 export function SubmitReadingClient({
   periodId,
   oldReading,
+  initialCsm = "",
 }: {
   periodId: string;
   oldReading: number;
+  initialCsm?: string;
 }) {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialCsm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,10 +41,6 @@ export function SubmitReadingClient({
   }
 
   async function submit() {
-    if (!file) {
-      setError("Vui lòng chụp ảnh hoặc chọn tệp ảnh đồng hồ.");
-      return;
-    }
     const confirmedValue = parseFloat(value);
     if (Number.isNaN(confirmedValue) || confirmedValue <= 0) {
       setError("Nhập CSM hợp lệ (số dương).");
@@ -56,11 +54,13 @@ export function SubmitReadingClient({
     setLoading(true);
     setError("");
     try {
-      const uploadFile = await compressImageForUpload(file);
       const fd = new FormData();
-      fd.append("image", uploadFile);
       fd.append("periodId", periodId);
       fd.append("confirmedValue", String(confirmedValue));
+      if (file) {
+        const uploadFile = await compressImageForUpload(file);
+        fd.append("image", uploadFile);
+      }
 
       const res = await fetch("/api/readings/submit", { method: "POST", body: fd });
       const body = await res.json();
@@ -71,7 +71,7 @@ export function SubmitReadingClient({
       router.refresh();
       clearImage();
       setValue("");
-      alert("Đã gửi CSM. Nhân viên sẽ duyệt trên bảng thu nước.");
+      alert("Đã lưu chỉ số vào hệ thống.");
     } catch {
       setError("Lỗi kết nối. Thử lại.");
     } finally {
@@ -82,15 +82,15 @@ export function SubmitReadingClient({
   return (
     <div className="card space-y-4">
       <p className="text-sm text-[var(--muted)]">
-        Chụp ảnh đồng hồ, rồi nhập <strong>chỉ số mới (CSM)</strong> trên mặt đồng hồ. Nhân viên sẽ
-        duyệt trên bảng thu.
+        Nhập <strong>chỉ số mới (CSM)</strong> trên mặt đồng hồ. Có thể đính kèm ảnh (không bắt
+        buộc). Dữ liệu lưu thẳng vào hệ thống.
       </p>
       <p className="rounded-lg bg-[var(--primary-soft)] px-3 py-2 text-sm text-[var(--primary-dark)]">
         Chỉ số cũ (CSC) kỳ trước: <strong>{oldReading} m³</strong>
       </p>
 
       <div>
-        <span className="label">Ảnh đồng hồ (bắt buộc)</span>
+        <span className="label">Ảnh đồng hồ (tùy chọn)</span>
         <input
           ref={cameraInputRef}
           type="file"
@@ -172,7 +172,7 @@ export function SubmitReadingClient({
       <button
         type="button"
         className="btn btn-primary w-full"
-        disabled={!file || !value || loading}
+        disabled={!value || loading}
         onClick={submit}
       >
         {loading ? "Đang lưu..." : "Gửi chỉ số"}

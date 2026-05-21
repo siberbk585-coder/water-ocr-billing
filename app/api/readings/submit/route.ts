@@ -17,19 +17,24 @@ export async function POST(request: Request) {
   const valueRaw = form.get("confirmedValue") as string | null;
 
   const parsed = z.coerce.number().positive().safeParse(valueRaw);
-  if (!file || !periodId || !parsed.success) {
-    return NextResponse.json({ error: "Thiếu ảnh, kỳ hoặc chỉ số không hợp lệ" }, { status: 400 });
+  if (!periodId || !parsed.success) {
+    return NextResponse.json({ error: "Thiếu kỳ hoặc chỉ số không hợp lệ" }, { status: 400 });
   }
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = file.name.split(".").pop() || "jpg";
+    let imageBuffer: Buffer | undefined;
+    let fileExt: string | undefined;
+    if (file && file.size > 0) {
+      imageBuffer = Buffer.from(await file.arrayBuffer());
+      fileExt = file.name.split(".").pop() || "jpg";
+    }
+
     const reading = await submitManualReading({
       householdId: session.householdId,
       periodId,
       confirmedValue: parsed.data,
-      imageBuffer: buffer,
-      fileExt: ext,
+      imageBuffer,
+      fileExt,
       actorId: session.id,
     });
     return NextResponse.json({
@@ -37,6 +42,7 @@ export async function POST(request: Request) {
       readingId: reading.id,
       confirmedValue: reading.confirmedValue,
       usageM3: reading.usageM3,
+      confirmedAt: reading.confirmedAt?.toISOString() ?? null,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Không lưu được";

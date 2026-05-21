@@ -97,13 +97,20 @@ export async function confirmReading(params: {
   });
 }
 
-/** Hộ dân gửi ảnh + CSM — chờ nhân viên duyệt trên bảng tuyến. */
+export function readingLastUpdatedAt(reading: {
+  submittedAt: Date;
+  confirmedAt: Date | null;
+}): Date {
+  return reading.confirmedAt ?? reading.submittedAt;
+}
+
+/** Hộ dân gửi CSM (ảnh tùy chọn) — lưu thẳng DB, trạng thái CONFIRMED. */
 export async function submitManualReading(params: {
   householdId: string;
   periodId: string;
   confirmedValue: number;
-  imageBuffer: Buffer;
-  fileExt: string;
+  imageBuffer?: Buffer;
+  fileExt?: string;
   actorId?: string;
 }) {
   const household = await prisma.household.findUniqueOrThrow({
@@ -113,21 +120,25 @@ export async function submitManualReading(params: {
 
   const oldReading = await getOldReading(params.householdId, params.periodId);
 
-  const uploaded = await uploadImageBuffer(params.imageBuffer, {
-    filename: buildImageFilename({
-      prefix: "reading",
-      code: household.householdCode,
-      ext: params.fileExt,
-    }),
-    householdId: params.householdId,
-    periodId: params.periodId,
-    householdCode: household.householdCode,
-    confirmedValue: params.confirmedValue,
-  });
-  const imagePath = uploaded.url;
-
   if (params.confirmedValue < oldReading) {
     throw new Error(`CSM phải ≥ CSC (${oldReading})`);
+  }
+
+  let imagePath: string | undefined;
+  if (params.imageBuffer?.length) {
+    const ext = params.fileExt || "jpg";
+    const uploaded = await uploadImageBuffer(params.imageBuffer, {
+      filename: buildImageFilename({
+        prefix: "reading",
+        code: household.householdCode,
+        ext,
+      }),
+      householdId: params.householdId,
+      periodId: params.periodId,
+      householdCode: household.householdCode,
+      confirmedValue: params.confirmedValue,
+    });
+    imagePath = uploaded.url;
   }
 
   const existing = await prisma.meterReading.findUnique({
@@ -139,18 +150,14 @@ export async function submitManualReading(params: {
     },
   });
 
-  const reading = existing
+  const draft = existing
     ? await prisma.meterReading.update({
         where: { id: existing.id },
         data: {
           oldReading,
-          imagePath,
-          confirmedValue: params.confirmedValue,
-          inputMethod: InputMethod.MANUAL,
-          status: ReadingStatus.PENDING,
-          usageM3: null,
+          ...(imagePath ? { imagePath } : {}),
+          submittedAt: new Date(),
           anomalyFlags: "[]",
-          confirmedAt: null,
         },
       })
     : await prisma.meterReading.create({
@@ -158,18 +165,26 @@ export async function submitManualReading(params: {
           householdId: params.householdId,
           periodId: params.periodId,
           oldReading,
-          imagePath,
-          confirmedValue: params.confirmedValue,
-          inputMethod: InputMethod.MANUAL,
+          imagePath: imagePath ?? null,
           status: ReadingStatus.PENDING,
           anomalyFlags: "[]",
         },
       });
 
+  const inputMethod =
+    imagePath || existing?.imagePath ? InputMethod.OCR_EDITED : InputMethod.MANUAL;
+
+  const reading = await confirmReading({
+    readingId: draft.id,
+    confirmedValue: params.confirmedValue,
+    inputMethod,
+    actorId: params.actorId,
+  });
+
   if (params.actorId) {
     await logAudit({
       actorId: params.actorId,
-      action: "READING_SUBMITTED",
+      action: "READING_CONFIRMED",
       entity: "MeterReading",
       entityId: reading.id,
     });
