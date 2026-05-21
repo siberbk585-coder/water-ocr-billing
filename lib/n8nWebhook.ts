@@ -12,9 +12,31 @@ export function n8nImageWebhookUrl(): string | null {
   return process.env.N8N_IMAGE_WEBHOOK_URL?.trim() || DEFAULT_WEBHOOK;
 }
 
+const LINK_KEYS = [
+  "webContentLink",
+  "webViewLink",
+  "url",
+  "imageUrl",
+  "downloadUrl",
+  "fileUrl",
+  "link",
+] as const;
+
+function isHttpUrl(v: unknown): v is string {
+  return typeof v === "string" && /^https?:\/\//i.test(v);
+}
+
+function linkFromObject(o: Record<string, unknown>): string | null {
+  for (const key of LINK_KEYS) {
+    if (isHttpUrl(o[key])) return o[key];
+  }
+  return null;
+}
+
 function extractUrl(data: unknown): string | null {
   if (!data) return null;
   if (typeof data === "string") {
+    if (isHttpUrl(data)) return data;
     try {
       return extractUrl(JSON.parse(data));
     } catch {
@@ -30,10 +52,10 @@ function extractUrl(data: unknown): string | null {
   }
   if (typeof data === "object") {
     const o = data as Record<string, unknown>;
-    if (typeof o.url === "string" && o.url.startsWith("http")) return o.url;
-    if (typeof o.imageUrl === "string" && o.imageUrl.startsWith("http")) return o.imageUrl;
-    if (o.body) {
-      const u = extractUrl(o.body);
+    const direct = linkFromObject(o);
+    if (direct) return direct;
+    if (o.body && typeof o.body === "object") {
+      const u = linkFromObject(o.body as Record<string, unknown>);
       if (u) return u;
     }
     if (o.json) {
@@ -103,7 +125,7 @@ export async function postImageToN8nWebhook(
   const url = extractUrl(parsed);
   if (!url) {
     throw new Error(
-      "n8n webhook không trả url. Thêm node Respond to Webhook với body: { \"url\": \"...\" }"
+      "n8n webhook không trả link ảnh. Cần trường url hoặc webContentLink (Google Drive) trong JSON response."
     );
   }
 

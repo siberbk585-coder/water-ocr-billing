@@ -63,18 +63,33 @@ Trong n8n: dùng `$binary.image` hoặc parse `$json.body` tùy cấu hình Webh
 
 ## 3. Response bắt buộc từ n8n
 
-Node **Respond to Webhook** phải trả JSON có **`url`** (chuỗi https):
+Node **Respond to Webhook** trả JSON có **link ảnh** — app đọc các trường sau (ưu tiên từ trên):
+
+- `webContentLink` — Google Drive (format bạn đang dùng)
+- `webViewLink`, `url`, `imageUrl`, `downloadUrl`
+
+**Ví dụ response Google Drive (đã hỗ trợ):**
 
 ```json
-{
-  "ok": true,
-  "url": "https://your-cdn.com/path/to/image.jpg"
-}
+[
+  {
+    "webContentLink": "https://drive.google.com/uc?id=...&export=download",
+    "body": {
+      "confirmedValue": "142",
+      "householdId": "...",
+      "householdCode": "HH00001",
+      "periodId": "...",
+      "source": "water-ocr-billing"
+    }
+  }
+]
 ```
 
-App cũng đọc được: `imageUrl`, hoặc mảng `[{ "body": { "url": "..." } }]` (format mặc định n8n).
+App lưu `imagePath` = `webContentLink`.
 
-Nếu không có `url` → app báo lỗi: *"n8n webhook không trả url"*.
+Hoặc đơn giản: `{ "url": "https://..." }`
+
+Nếu không có link → app báo lỗi *"n8n webhook không trả link ảnh"*.
 
 ---
 
