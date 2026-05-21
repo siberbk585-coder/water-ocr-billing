@@ -14,13 +14,16 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "mcp:upload": "node scripts/mcp-image-upload.mjs",
     "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/client": "^6.19.0",
+    "@vercel/blob": "^2.4.0",
     "bcryptjs": "^3.0.3",
     "next": "16.2.6",
     "pdf-lib": "^1.17.1",

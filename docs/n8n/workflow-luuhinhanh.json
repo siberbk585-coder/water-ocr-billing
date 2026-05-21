@@ -1,0 +1,64 @@
+{
+  "name": "luuhinhanh — Nhận ảnh, trả URL",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "luuhinhanh",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "luuhinhanh"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "note",
+              "name": "hint",
+              "value": "Thay node dưới bằng: Upload Drive/S3/Blob, OCR, v.v. Cuối cùng Respond phải có url",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "placeholder",
+      "name": "Xử lý ảnh (thay bằng flow của bạn)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [280, 0],
+      "notes": "Input: $json.body hoặc binary image từ field 'image'"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": true,\n  \"url\": \"https://example.com/REPLACE-WITH-YOUR-IMAGE-URL.jpg\",\n  \"source\": \"{{ $json.body?.source || 'n8n' }}\",\n  \"filename\": \"{{ $json.body?.filename || $binary.image?.fileName }}\"\n}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [520, 0],
+      "notes": "Bắt buộc trả JSON có trường url (https://...)"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Xử lý ảnh (thay bằng flow của bạn)", "type": "main", "index": 0 }]]
+    },
+    "Xử lý ảnh (thay bằng flow của bạn)": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,9 +1,8 @@
 import { InputMethod, ReadingStatus } from "@prisma/client";
-import { randomUUID } from "crypto";
 import { prisma } from "./db";
 import { detectAnomalies } from "./anomaly";
 import { calculateUsage } from "./billing";
-import { saveBuffer } from "./storage";
+import { uploadImageBuffer } from "./imageUpload";
 import { logAudit } from "./audit";
 
 export async function getAvgUsage3Months(
@@ -106,10 +105,21 @@ export async function submitManualReading(params: {
   fileExt: string;
   actorId?: string;
 }) {
-  const [oldReading, imagePath] = await Promise.all([
-    getOldReading(params.householdId, params.periodId),
-    saveBuffer("readings", `${randomUUID()}.${params.fileExt}`, params.imageBuffer),
-  ]);
+  const household = await prisma.household.findUniqueOrThrow({
+    where: { id: params.householdId },
+    select: { householdCode: true },
+  });
+
+  const oldReading = await getOldReading(params.householdId, params.periodId);
+
+  const uploaded = await uploadImageBuffer(params.imageBuffer, {
+    filename: `reading-${household.householdCode}.${params.fileExt}`,
+    householdId: params.householdId,
+    periodId: params.periodId,
+    householdCode: household.householdCode,
+    confirmedValue: params.confirmedValue,
+  });
+  const imagePath = uploaded.url;
 
   if (params.confirmedValue < oldReading) {
     throw new Error(`CSM phải ≥ CSC (${oldReading})`);

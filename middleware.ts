@@ -1,20 +1,25 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC = ["/login", "/api/auth/login"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/api/auth/login",
+  "/api/uploads/", // n8n / MCP upload ảnh (API key trong route)
+  "/api/files/", // phục vụ ảnh local khi chưa có Blob
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
-    pathname.startsWith("/api/auth/login")
+    PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p))
   ) {
     return NextResponse.next();
   }
 
   const session = request.cookies.get("water_session")?.value;
-  const isPublic = PUBLIC.some((p) => pathname === p || pathname.startsWith(p));
+  const isPublic = PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
 
   if (!session && !isPublic && pathname !== "/") {
     return NextResponse.redirect(new URL("/login", request.url));

@@ -1,0 +1,113 @@
+{
+  "name": "Water OCR - Upload ảnh trả URL",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-meter-image",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "water-upload-meter"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WATER_OCR_API_URL || 'https://water-ocr-billing.vercel.app' }}/api/uploads/image",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"image_base64\": {{ JSON.stringify($json.body?.image_base64 ?? $json.image_base64 ?? '') }},\n  \"filename\": {{ JSON.stringify($json.body?.filename ?? $json.filename ?? 'meter.jpg') }},\n  \"content_type\": {{ JSON.stringify($json.body?.content_type ?? $json.content_type ?? 'image/jpeg') }}\n}",
+        "options": {}
+      },
+      "id": "http-upload",
+      "name": "Upload ảnh API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Water OCR Upload API Key"
+        }
+      },
+      "notes": "Header Auth: Authorization = Bearer <UPLOAD_API_KEY>"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "url",
+              "name": "imageUrl",
+              "value": "={{ $json.url }}",
+              "type": "string"
+            },
+            {
+              "id": "pathname",
+              "name": "pathname",
+              "value": "={{ $json.pathname }}",
+              "type": "string"
+            },
+            {
+              "id": "storage",
+              "name": "storage",
+              "value": "={{ $json.storage }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-output",
+      "name": "Chuẩn hóa output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [520, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, url: $json.imageUrl, pathname: $json.pathname, storage: $json.storage } }}",
+        "options": {}
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Upload ảnh API", "type": "main", "index": 0 }]]
+    },
+    "Upload ảnh API": {
+      "main": [[{ "node": "Chuẩn hóa output", "type": "main", "index": 0 }]]
+    },
+    "Chuẩn hóa output": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
