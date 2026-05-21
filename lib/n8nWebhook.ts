@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { buildImageFilename, uploadedAtIso } from "./filename";
 
 export type N8nImageUploadResult = {
   url: string;
@@ -62,11 +62,20 @@ export async function postImageToN8nWebhook(
   }
 
   const contentType = meta?.contentType ?? "image/jpeg";
-  const filename = meta?.filename ?? `meter-${randomUUID()}.jpg`;
+  const ext = meta?.filename?.split(".").pop() || contentType.split("/").pop() || "jpg";
+  const filename =
+    meta?.filename && /^\d{8}_\d{6}_/.test(meta.filename)
+      ? meta.filename
+      : buildImageFilename({
+          prefix: "meter",
+          code: meta?.householdCode,
+          ext,
+        });
 
   const form = new FormData();
   form.append("image", new Blob([new Uint8Array(buffer)], { type: contentType }), filename);
   form.append("filename", filename);
+  form.append("uploaded_at", uploadedAtIso());
   form.append("content_type", contentType);
   form.append("source", "water-ocr-billing");
   if (meta?.householdId) form.append("householdId", meta.householdId);

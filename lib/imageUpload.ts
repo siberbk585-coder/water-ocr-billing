@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
 import { randomUUID } from "crypto";
+import { buildImageFilename } from "./filename";
 import { postImageToN8nWebhook, n8nImageWebhookUrl } from "./n8nWebhook";
 import { saveBuffer } from "./storage";
 
@@ -37,7 +38,14 @@ export async function uploadImageBuffer(
 ): Promise<ImageUploadResult> {
   const contentType = opts?.contentType ?? "image/jpeg";
   const ext = opts?.filename?.split(".").pop() || extFromContentType(contentType);
-  const filename = opts?.filename ?? `meter-${randomUUID()}.${ext}`;
+  const filename =
+    opts?.filename && /^\d{8}_\d{6}_/.test(opts.filename)
+      ? opts.filename
+      : buildImageFilename({
+          prefix: "meter",
+          code: opts?.householdCode,
+          ext,
+        });
 
   if (n8nImageWebhookUrl()) {
     const n8n = await postImageToN8nWebhook(buffer, {

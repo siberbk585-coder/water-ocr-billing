@@ -2,6 +2,7 @@ import { InputMethod, ReadingStatus } from "@prisma/client";
 import { prisma } from "./db";
 import { detectAnomalies } from "./anomaly";
 import { calculateUsage } from "./billing";
+import { buildImageFilename } from "./filename";
 import { uploadImageBuffer } from "./imageUpload";
 import { logAudit } from "./audit";
 
@@ -113,7 +114,11 @@ export async function submitManualReading(params: {
   const oldReading = await getOldReading(params.householdId, params.periodId);
 
   const uploaded = await uploadImageBuffer(params.imageBuffer, {
-    filename: `reading-${household.householdCode}.${params.fileExt}`,
+    filename: buildImageFilename({
+      prefix: "reading",
+      code: household.householdCode,
+      ext: params.fileExt,
+    }),
     householdId: params.householdId,
     periodId: params.periodId,
     householdCode: household.householdCode,
