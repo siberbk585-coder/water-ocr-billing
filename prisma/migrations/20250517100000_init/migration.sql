@@ -1,10 +1,25 @@
+-- CreateEnum
+CREATE TYPE "UserRole" AS ENUM ('RESIDENT', 'ADMIN');
+
+-- CreateEnum
+CREATE TYPE "ReadingStatus" AS ENUM ('PENDING', 'CONFIRMED', 'REJECTED');
+
+-- CreateEnum
+CREATE TYPE "InputMethod" AS ENUM ('OCR_CONFIRMED', 'OCR_EDITED', 'MANUAL');
+
+-- CreateEnum
+CREATE TYPE "InvoiceStatus" AS ENUM ('DRAFT', 'ISSUED', 'PAID', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "PeriodStatus" AS ENUM ('OPEN', 'CLOSED');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'RESIDENT',
+    "role" "UserRole" NOT NULL DEFAULT 'RESIDENT',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -41,7 +56,7 @@ CREATE TABLE "BillingPeriod" (
     "id" TEXT NOT NULL,
     "year" INTEGER NOT NULL,
     "month" INTEGER NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'OPEN',
+    "status" "PeriodStatus" NOT NULL DEFAULT 'OPEN',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "BillingPeriod_pkey" PRIMARY KEY ("id")
@@ -56,11 +71,11 @@ CREATE TABLE "MeterReading" (
     "ocrValue" DOUBLE PRECISION,
     "confirmedValue" DOUBLE PRECISION,
     "confidence" DOUBLE PRECISION,
-    "inputMethod" TEXT,
+    "inputMethod" "InputMethod",
     "imagePath" TEXT,
     "usageM3" DOUBLE PRECISION,
     "anomalyFlags" TEXT NOT NULL DEFAULT '[]',
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" "ReadingStatus" NOT NULL DEFAULT 'PENDING',
     "submittedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "confirmedAt" TIMESTAMP(3),
 
@@ -76,7 +91,7 @@ CREATE TABLE "Invoice" (
     "unitPrice" DOUBLE PRECISION NOT NULL,
     "totalAmount" DOUBLE PRECISION NOT NULL,
     "pdfPath" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'DRAFT',
+    "status" "InvoiceStatus" NOT NULL DEFAULT 'DRAFT',
     "issuedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
