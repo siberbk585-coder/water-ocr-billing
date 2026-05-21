@@ -3,7 +3,7 @@ import { prisma } from "./db";
 import { detectAnomalies } from "./anomaly";
 import { calculateUsage } from "./billing";
 import { buildImageFilename } from "./filename";
-import { uploadImageBuffer } from "./imageUpload";
+import { uploadReadingImageViaN8n } from "./imageUpload";
 import { logAudit } from "./audit";
 
 export async function getAvgUsage3Months(
@@ -104,7 +104,11 @@ export function readingLastUpdatedAt(reading: {
   return reading.confirmedAt ?? reading.submittedAt;
 }
 
-/** Hộ dân gửi CSM (ảnh tùy chọn) — lưu thẳng DB, trạng thái CONFIRMED. */
+/**
+ * Hộ dân gửi CSM:
+ * - Có ảnh → n8n webhook → nhận link → ghi `imagePath` + xác nhận DB.
+ * - Không ảnh → bỏ qua n8n, ghi thẳng DB (CONFIRMED).
+ */
 export async function submitManualReading(params: {
   householdId: string;
   periodId: string;
@@ -127,7 +131,7 @@ export async function submitManualReading(params: {
   let imagePath: string | undefined;
   if (params.imageBuffer?.length) {
     const ext = params.fileExt || "jpg";
-    const uploaded = await uploadImageBuffer(params.imageBuffer, {
+    imagePath = await uploadReadingImageViaN8n(params.imageBuffer, {
       filename: buildImageFilename({
         prefix: "reading",
         code: household.householdCode,
@@ -138,7 +142,6 @@ export async function submitManualReading(params: {
       householdCode: household.householdCode,
       confirmedValue: params.confirmedValue,
     });
-    imagePath = uploaded.url;
   }
 
   const existing = await prisma.meterReading.findUnique({

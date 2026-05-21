@@ -5,6 +5,7 @@ import { z } from "zod";
 
 export const runtime = "nodejs";
 
+/** Có file ảnh → n8n rồi DB; không ảnh → chỉ DB (một request). */
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session?.householdId) {

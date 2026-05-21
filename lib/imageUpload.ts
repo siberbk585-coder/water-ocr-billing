@@ -24,7 +24,39 @@ function appBaseUrl(): string {
   );
 }
 
-/** Upload ảnh — ưu tiên n8n webhook, rồi Blob, rồi local. */
+/**
+ * Gửi chỉ số kèm ảnh: n8n webhook → link (webContentLink / url) → lưu `imagePath` DB.
+ * Không có ảnh: không gọi hàm này — `submitManualReading` ghi DB trực tiếp.
+ */
+export async function uploadReadingImageViaN8n(
+  buffer: Buffer,
+  opts: {
+    filename: string;
+    householdId: string;
+    periodId: string;
+    householdCode: string;
+    confirmedValue: number;
+    contentType?: string;
+  }
+): Promise<string> {
+  if (!buffer.length) {
+    throw new Error("Thiếu dữ liệu ảnh");
+  }
+  if (!n8nImageWebhookUrl()) {
+    throw new Error("Chưa bật webhook n8n (N8N_IMAGE_WEBHOOK_URL) để lưu ảnh");
+  }
+  const n8n = await postImageToN8nWebhook(buffer, {
+    filename: opts.filename,
+    contentType: opts.contentType ?? "image/jpeg",
+    householdId: opts.householdId,
+    periodId: opts.periodId,
+    householdCode: opts.householdCode,
+    confirmedValue: opts.confirmedValue,
+  });
+  return n8n.url;
+}
+
+/** Upload ảnh chung (API/MCP) — ưu tiên n8n, rồi Blob, rồi local. */
 export async function uploadImageBuffer(
   buffer: Buffer,
   opts?: {

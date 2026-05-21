@@ -82,8 +82,8 @@ export function SubmitReadingClient({
   return (
     <div className="card space-y-4">
       <p className="text-sm text-[var(--muted)]">
-        Nhập <strong>chỉ số mới (CSM)</strong> trên mặt đồng hồ. Có thể đính kèm ảnh (không bắt
-        buộc). Dữ liệu lưu thẳng vào hệ thống.
+        Nhập <strong>chỉ số mới (CSM)</strong>. Có ảnh thì hệ thống gửi ảnh qua n8n lấy link rồi
+        lưu; không ảnh thì lưu chỉ số thẳng vào cơ sở dữ liệu.
       </p>
       <p className="rounded-lg bg-[var(--primary-soft)] px-3 py-2 text-sm text-[var(--primary-dark)]">
         Chỉ số cũ (CSC) kỳ trước: <strong>{oldReading} m³</strong>
