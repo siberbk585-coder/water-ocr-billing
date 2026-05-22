@@ -19,7 +19,8 @@ export default async function InvoiceViewPage({
   if (!invoice) notFound();
 
   const pdfSrc = getInvoicePdfViewUrl(invoice);
-  const backHref = session.role === "ADMIN" ? "/admin/invoices" : "/resident/invoices";
+  const backHref =
+    session.role === "ADMIN" ? "/admin/billing-sheet?route=all" : "/resident/invoices";
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl flex-col gap-4 p-4">

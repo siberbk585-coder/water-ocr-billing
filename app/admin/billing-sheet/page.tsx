@@ -263,9 +263,7 @@ export default async function BillingSheetPage({
           Sửa khu vực thu (tuyến)
         </Link>
         {" · "}
-        <Link href="/admin/invoices" className="hover:underline">
-          Danh sách hóa đơn
-        </Link>
+        Xuất PDF từng hộ ở cột <strong>Hóa đơn</strong> trên bảng
       </p>
     </>
   );

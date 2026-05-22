@@ -13,7 +13,6 @@ export const appTitle = "Thu tiền nước";
 export const adminNav = [
   { href: "/admin/dashboard", label: "Tổng quan" },
   { href: "/admin/billing-sheet", label: "Bảng thu nước" },
-  { href: "/admin/invoices", label: "Hóa đơn" },
   { href: "/admin/payments", label: "Thu tiền" },
   { href: "/admin/households", label: "Danh sách hộ" },
   { href: "/admin/area-prices", label: "Giá khu vực" },

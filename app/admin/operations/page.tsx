@@ -8,10 +8,10 @@ const monthlySteps = [
     cta: "Mở chờ chốt",
   },
   {
-    title: "2. Hóa đơn",
-    body: "Sau khi chốt CSM: chốt hóa đơn kỳ (tính tổng tiền), xuất PDF từng hộ trên bảng thu.",
-    href: "/admin/invoices",
-    cta: "Mở hóa đơn",
+    title: "2. Hóa đơn PDF",
+    body: "Sau khi chốt CSM: trên bảng thu bấm「Hóa đơn」từng hộ — tạo PDF và ghi tổng tiền.",
+    href: "/admin/billing-sheet?route=all",
+    cta: "Mở bảng thu",
   },
   {
     title: "3. Thu tiền",

@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { InvoiceStatus, ReadingStatus } from "@prisma/client";
 import type { BillingSheetRow } from "@/lib/billingSheet";
-import { previewBillingRow } from "@/lib/billing";
+import { formatCurrency, previewBillingRow } from "@/lib/billing";
 import { readingStatusLabel } from "@/lib/vi";
 import { BillingSheetInvoiceBtn } from "@/components/BillingSheetInvoiceBtn";
 
@@ -199,6 +199,18 @@ export function BillingSheetGrid({
     }
     if (row.paid) return;
 
+    const amount =
+      row.totalAmount != null && row.totalAmount > 0
+        ? formatCurrency(row.totalAmount)
+        : "số tiền trên hóa đơn";
+    if (
+      !confirm(
+        `Xác nhận hộ ${row.householdCode} (${row.residentName}) đã thanh toán ${amount}?`
+      )
+    ) {
+      return;
+    }
+
     setSaving(row.householdId);
     try {
       const res = await fetch("/api/payments/confirm", {
@@ -292,7 +304,12 @@ export function BillingSheetGrid({
             <th className="w-24 text-right">Tiền</th>
             <th className="w-16 text-center">Hóa đơn</th>
             <th className="w-32 text-center">Chỉ số tháng này</th>
-            <th className="w-24 text-center">Thanh toán</th>
+            <th
+              className="w-28 text-center"
+              title="Bấm nút vàng「Xác nhận đã thu tiền」khi hộ đã nộp"
+            >
+              Xác nhận thu
+            </th>
             <th className="w-20 text-center">Ảnh</th>
           </tr>
         </thead>
@@ -416,12 +433,21 @@ export function BillingSheetGrid({
                   ) : row.invoiceId ? (
                     <button
                       type="button"
-                      className="font-semibold text-[var(--primary)] hover:underline"
+                      className="btn btn-mark-paid whitespace-nowrap px-2.5 py-1.5 text-[11px] font-bold"
                       disabled={saving === row.householdId}
+                      title="Bấm để ghi nhận hộ này đã nộp tiền"
+                      aria-label={`Xác nhận đã thu tiền hộ ${row.householdCode}`}
                       onClick={() => void markPaid(row)}
                     >
-                      Chưa
+                      {saving === row.householdId ? "Đang lưu…" : "Xác nhận thu"}
                     </button>
+                  ) : row.status === ReadingStatus.CONFIRMED ? (
+                    <span
+                      className="text-[10px] text-[var(--muted)]"
+                      title="Tạo hóa đơn (cột Hóa đơn) trước khi xác nhận thu"
+                    >
+                      Chưa có HĐ
+                    </span>
                   ) : (
                     <span className="text-[var(--muted)]">—</span>
                   )}

@@ -156,10 +156,10 @@ export default async function AdminDashboardPage() {
             />
             <WorkflowStep
               number="3"
-              title="Hóa đơn"
-              body="Chốt hóa đơn kỳ (tính tổng tiền), xuất PDF từng hộ trên bảng thu."
-              href="/admin/invoices"
-              cta="Mở hóa đơn"
+              title="Hóa đơn PDF"
+              body="Trên Bảng thu nước: chốt CSM → bấm「Hóa đơn」từng hộ để tạo/xem PDF."
+              href="/admin/billing-sheet?route=all"
+              cta="Mở bảng thu"
               status={`${issuedInvoices} chưa TT · ${missingPdf} chưa có PDF`}
             />
             <WorkflowStep
