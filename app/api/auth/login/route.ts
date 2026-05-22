@@ -3,7 +3,7 @@ import { login, setSessionCookie } from "@/lib/auth";
 import { z } from "zod";
 
 const schema = z.object({
-  phone: z.string().min(8),
+  phone: z.string().trim().min(3),
   password: z.string().min(4),
 });
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const user = await login(parsed.data.phone, parsed.data.password);
   if (!user) {
-    return NextResponse.json({ error: "Sai số điện thoại hoặc mật khẩu" }, { status: 401 });
+    return NextResponse.json({ error: "Sai tài khoản hoặc mật khẩu" }, { status: 401 });
   }
 
   await setSessionCookie(user);

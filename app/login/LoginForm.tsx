@@ -21,7 +21,7 @@ export function LoginForm() {
     });
     setLoading(false);
     if (!res.ok) {
-      setError("Sai số điện thoại hoặc mật khẩu");
+      setError("Sai tài khoản hoặc mật khẩu");
       return;
     }
     router.push("/");
@@ -32,14 +32,14 @@ export function LoginForm() {
     <form onSubmit={onSubmit} className="space-y-4">
       <div>
         <label className="label" htmlFor="phone">
-          Số điện thoại
+          Tài khoản
         </label>
         <input
           id="phone"
           className="input"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="0900000001"
+          placeholder="admin"
           required
         />
       </div>

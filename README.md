@@ -29,9 +29,9 @@ cp .env.example .env && npm install && npm run db:migrate && npm run db:seed && 
 
 ### Tai khoan demo (sau seed)
 
-| Vai tro   | So dien thoai | Mat khau    |
+| Vai tro   | Tai khoan     | Mat khau    |
 |-----------|---------------|-------------|
-| Admin     | 0900000001    | 123456      |
+| Admin     | admin         | 123456      |
 | Dan cu    | 0912345678    | 123456      |
 
 Dan cu demo gan voi dong ho `DH00001`.

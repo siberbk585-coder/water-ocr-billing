@@ -113,7 +113,7 @@ async function main() {
 
   await prisma.user.create({
     data: {
-      phone: "0900000001",
+      phone: "admin",
       passwordHash,
       name: adminDisplayName(),
       role: UserRole.ADMIN,
@@ -332,7 +332,7 @@ async function main() {
     console.log(`  · ${r.name}: ${r.unitPrice?.toLocaleString("vi-VN")}`);
   }
   console.log("\nĐăng nhập:");
-  console.log(`  Admin: 0900000001 / ${DEMO_PASSWORD}`);
+  console.log(`  Admin: admin / ${DEMO_PASSWORD}`);
   console.log(`  Hộ demo (đã chốt kỳ này): 0912345678 / ${DEMO_PASSWORD} — MKH 212001`);
   console.log(`  Hộ test (chưa gửi CSM): 0920000001 … 0920000020 / ${DEMO_PASSWORD}`);
   console.log(`  Ví dụ MKH test: TEST001 … TEST020\n`);

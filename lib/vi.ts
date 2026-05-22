@@ -93,6 +93,7 @@ export function auditActionLabel(action: string): string {
     XLSX_EXPORT: "Xuất Excel",
     XLSX_IMPORT: "Nhập Excel kỳ thu",
     SETTINGS_UPDATED: "Cập nhật cài đặt",
+    HOUSEHOLD_CREATED: "Thêm hộ mới",
   };
   return map[action] ?? action;
 }
@@ -105,6 +106,7 @@ export function entityLabel(entity: string): string {
     Export: "Xuất / nhập dữ liệu",
     BillingPeriod: "Kỳ thu",
     SystemSettings: "Cài đặt hệ thống",
+    Household: "Hộ dân",
   };
   return map[entity] ?? entity;
 }

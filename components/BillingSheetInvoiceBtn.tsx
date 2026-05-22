@@ -60,6 +60,7 @@ export function BillingSheetInvoiceBtn({
       className="text-xs font-semibold text-[var(--primary)] hover:underline disabled:opacity-50"
       disabled={loading}
       onClick={() => void openPdf()}
+      title={pdfPath ? "Mở PDF đã tạo" : "Tạo PDF hóa đơn và lưu link"}
     >
       {loading ? "…" : pdfPath ? "Xem lại" : "Hóa đơn"}
     </button>

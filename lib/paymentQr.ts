@@ -43,7 +43,10 @@ export async function fetchPaymentQrImage(params: {
   if (!url) return null;
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const configuredTimeout = Number(process.env.BANK_QR_TIMEOUT_MS ?? 5000);
+    const timeoutMs =
+      Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 5000;
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
     return buf.length > 100 ? buf : null;

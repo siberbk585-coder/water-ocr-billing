@@ -4,6 +4,11 @@ import { unitPriceForHousehold } from "./routePricing";
 import { syncInvoiceForConfirmedReading } from "./invoices";
 import { prisma } from "./db";
 import { generateInvoicePdf } from "./pdf";
+import { buildTransferNote } from "./paymentQr";
+import {
+  n8nInvoiceWebhookUrl,
+  postInvoicePdfToN8nWebhook,
+} from "./n8nInvoicePdf";
 import { saveBuffer } from "./storage";
 import { formatPeriod } from "./vi";
 
@@ -19,7 +24,7 @@ export async function ensureInvoiceForHouseholdPeriod(
   return synced.id;
 }
 
-/** Tạo / cập nhật 1 hóa đơn PDF — lưu file local, không gọi n8n. */
+/** Tạo / cập nhật 1 hóa đơn PDF — ưu tiên lưu n8n, fallback local khi dev. */
 export async function exportInvoicePdfLocal(invoiceId: string): Promise<{
   buffer: Buffer;
   pdfPath: string;
@@ -57,26 +62,58 @@ export async function exportInvoicePdfLocal(invoiceId: string): Promise<{
   const usageM3 = invoice.usageM3 ?? reading.usageM3;
   const totalAmount =
     invoice.totalAmount ?? calculateTotal(usageM3, unitPrice);
+  const periodLabel = formatPeriod(invoice.period.month, invoice.period.year);
+  const invoiceCode = `HD-${invoice.period.year}${String(invoice.period.month).padStart(2, "0")}-${invoice.household.householdCode}`;
 
   const pdf = await generateInvoicePdf({
-    invoiceCode: invoice.id.slice(-8).toUpperCase(),
+    invoiceCode,
     householdCode: invoice.household.householdCode,
     meterCode: invoice.household.meterCode,
     residentName: invoice.household.residentName,
     address: invoice.household.address,
-    periodLabel: formatPeriod(invoice.period.month, invoice.period.year),
+    periodLabel,
     oldReading: reading.oldReading,
     newReading: reading.confirmedValue,
     usageM3,
     unitPrice,
     totalAmount,
+    transferNote: buildTransferNote(
+      invoice.household.meterCode,
+      invoice.period.month,
+      invoice.period.year
+    ),
   });
 
-  const pdfPath = await saveBuffer(
-    "invoices",
-    `${invoice.household.meterCode}_${invoice.period.year}-${invoice.period.month}.pdf`,
-    pdf
-  );
+  const filename = `${invoice.household.meterCode}_${invoice.period.year}-${invoice.period.month}.pdf`;
+  let pdfPath: string | null = null;
+
+  const shouldUploadToN8n =
+    process.env.N8N_INVOICE_WEBHOOK_DISABLED !== "true" &&
+    (process.env.VERCEL === "1" || Boolean(process.env.N8N_INVOICE_WEBHOOK_URL?.trim()));
+
+  if (shouldUploadToN8n && n8nInvoiceWebhookUrl()) {
+    try {
+      const uploaded = await postInvoicePdfToN8nWebhook(pdf, {
+        invoiceId: invoice.id,
+        householdId: invoice.householdId,
+        periodId: invoice.periodId,
+        householdCode: invoice.household.householdCode,
+        meterCode: invoice.household.meterCode,
+        periodLabel,
+        totalAmount,
+      });
+      pdfPath = uploaded.url;
+    } catch (error) {
+      if (process.env.VERCEL === "1") {
+        throw error;
+      }
+      console.warn("[invoicePdfLocal] n8n upload failed, fallback to local file", error);
+    }
+  }
+
+  if (!pdfPath) {
+    pdfPath = await saveBuffer("invoices", filename, pdf);
+  }
 
   await prisma.invoice.update({
     where: { id: invoice.id },

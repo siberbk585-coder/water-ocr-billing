@@ -51,8 +51,9 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export async function login(phone: string, password: string): Promise<SessionUser | null> {
+  const account = phone.trim();
   const user = await prisma.user.findUnique({
-    where: { phone },
+    where: { phone: account },
     include: { household: true },
   });
   if (!user) return null;

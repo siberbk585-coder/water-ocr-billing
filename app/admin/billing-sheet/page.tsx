@@ -27,12 +27,14 @@ export default async function BillingSheetPage({
     errors?: string;
     message?: string;
     durationMs?: string;
+    q?: string;
   }>;
 }) {
   const {
     period: periodId,
     route: routeParam,
     view,
+    q: searchQuery,
     status: statusParam,
     imported,
     paid,
@@ -77,15 +79,46 @@ export default async function BillingSheetPage({
       );
   const summaries = isSummary ? await loadRouteSummaries(activePeriod.id) : [];
 
+  const query = searchQuery?.trim().toLowerCase() ?? "";
+  const filteredRows = query
+    ? rows.filter((r) => {
+        const hay = [
+          r.householdCode,
+          r.meterCode,
+          r.residentName,
+          r.contactPhone ?? "",
+          r.routeName ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(query);
+      })
+    : rows;
+
   const pendingCount = rows.filter((r) => r.status === ReadingStatus.PENDING).length;
+  const routeQuery = isAll ? "all" : activeRoute?.id ?? "all";
+
+  function billingHref(extra?: Record<string, string>) {
+    const p = new URLSearchParams();
+    p.set("period", activePeriod.id);
+    if (isSummary) p.set("view", "summary");
+    else p.set("route", routeQuery);
+    if (extra?.status !== undefined) {
+      if (extra.status && extra.status !== "all") p.set("status", extra.status);
+    } else if (statusFilter !== "all") {
+      p.set("status", statusFilter);
+    }
+    if (extra?.q !== "" && searchQuery?.trim()) p.set("q", searchQuery.trim());
+    return `/admin/billing-sheet?${p.toString()}`;
+  }
+
+  const clearSearchHref = billingHref({ q: "" });
   const statusTabs: { key: ReadingStatusFilter; label: string }[] = [
     { key: "all", label: "Tất cả" },
     { key: "pending", label: pendingCount ? `Chờ chốt (${pendingCount})` : "Chờ chốt" },
     { key: "confirmed", label: "Đã chốt" },
     { key: "rejected", label: "Từ chối" },
   ];
-
-  const routeQuery = isAll ? "all" : activeRoute?.id ?? "all";
 
   return (
     <>
@@ -104,6 +137,41 @@ export default async function BillingSheetPage({
       )}
 
       <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        {!isSummary && (
+          <form
+            method="get"
+            className="flex w-full shrink-0 items-end gap-2 lg:w-56 lg:flex-col lg:items-stretch xl:w-64"
+          >
+            <input type="hidden" name="period" value={activePeriod.id} />
+            <input type="hidden" name="route" value={routeQuery} />
+            {statusFilter !== "all" && (
+              <input type="hidden" name="status" value={statusFilter} />
+            )}
+            <label className="label mb-0 hidden text-xs lg:block">Tìm hộ</label>
+            <input
+              name="q"
+              defaultValue={searchQuery ?? ""}
+              placeholder="MKH, đồng hồ, tên…"
+              className="input w-full py-1.5 text-sm"
+              aria-label="Tìm mã hộ, đồng hồ, tên"
+            />
+            <div className="flex gap-1">
+              <button type="submit" className="btn btn-secondary flex-1 py-1.5 text-xs">
+                Tìm
+              </button>
+              {query && (
+                <Link
+                  href={clearSearchHref}
+                  className="btn btn-secondary px-2 py-1.5 text-xs"
+                  title="Xóa lọc"
+                >
+                  ×
+                </Link>
+              )}
+            </div>
+          </form>
+        )}
+
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:gap-3">
           <div>
             <h1 className="text-xl font-bold sm:text-2xl">Bảng thu nước</h1>
@@ -116,6 +184,13 @@ export default async function BillingSheetPage({
                   : activeRoute
                     ? ` — ${activeRoute.name}`
                     : ""}
+              {!isSummary && query && (
+                <span>
+                  {" "}
+                  · hiển thị <strong>{filteredRows.length}</strong>/
+                  {rows.length} hộ
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -144,7 +219,7 @@ export default async function BillingSheetPage({
       {!isSummary && (activeRoute || isAll) && (
         <div className="mb-3 flex flex-wrap gap-2">
           {statusTabs.map((tab) => {
-            const href = `/admin/billing-sheet?period=${activePeriod.id}&route=${routeQuery}&status=${tab.key}`;
+            const href = billingHref({ status: tab.key });
             const active = statusFilter === tab.key;
             return (
               <Link
@@ -168,9 +243,9 @@ export default async function BillingSheetPage({
         <BillingSheetSummary summaries={summaries} periodLabel={periodLabel} />
       ) : activeRoute || isAll ? (
         <BillingSheetGrid
-          key={`${activePeriod.id}-${routeQuery}-${statusFilter}`}
+          key={`${activePeriod.id}-${routeQuery}-${statusFilter}-${query}`}
           periodId={activePeriod.id}
-          rows={rows}
+          rows={filteredRows}
           statusFilter={statusFilter}
           showRoute={isAll}
         />

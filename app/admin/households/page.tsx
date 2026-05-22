@@ -2,13 +2,14 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { latestReading, readingCounts } from "@/lib/household";
 import { formatPeriod, householdStatusLabel, readingStatusLabel } from "@/lib/vi";
+import { AddHouseholdModal } from "@/components/AddHouseholdModal";
 
 export default async function AdminHouseholdsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; error?: string }>;
 }) {
-  const { q, page: pageParam } = await searchParams;
+  const { q, page: pageParam, error } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   const pageSize = 50;
   const skip = (page - 1) * pageSize;
@@ -24,7 +25,7 @@ export default async function AdminHouseholdsPage({
       }
     : undefined;
 
-  const [households, total] = await Promise.all([
+  const [households, total, routes, priceGroups] = await Promise.all([
     prisma.household.findMany({
       where,
       skip,
@@ -40,6 +41,14 @@ export default async function AdminHouseholdsPage({
       },
     }),
     prisma.household.count({ where }),
+    prisma.collectionRoute.findMany({
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
+    prisma.priceGroup.findMany({
+      orderBy: { code: "asc" },
+      select: { id: true, name: true, code: true },
+    }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -53,18 +62,27 @@ export default async function AdminHouseholdsPage({
             Trung tâm theo hộ — mỗi hộ một mã, một đồng hồ, lịch sử chỉ số trong chi tiết.
           </p>
         </div>
-        <form className="flex gap-2" method="get">
-          <input
-            name="q"
-            defaultValue={q ?? ""}
-            placeholder="Tìm mã hộ, đồng hồ, tên..."
-            className="input min-w-[220px]"
-          />
-          <button type="submit" className="btn btn-secondary">
-            Tìm
-          </button>
-        </form>
+        <div className="flex flex-wrap items-end gap-2">
+          <AddHouseholdModal routes={routes} priceGroups={priceGroups} />
+          <form className="flex gap-2" method="get">
+            <input
+              name="q"
+              defaultValue={q ?? ""}
+              placeholder="Tìm mã hộ, đồng hồ, tên..."
+              className="input min-w-[220px]"
+            />
+            <button type="submit" className="btn btn-secondary">
+              Tìm
+            </button>
+          </form>
+        </div>
       </div>
+
+      {error && (
+        <div className="card mb-3 border-[var(--danger)]/30 bg-red-50 py-3 text-sm text-[var(--danger)]">
+          {error}
+        </div>
+      )}
 
       <p className="mb-3 text-sm text-slate-600">
         {total} hộ — trang {page}/{totalPages}

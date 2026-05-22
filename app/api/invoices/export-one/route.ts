@@ -14,7 +14,7 @@ const schema = z.object({
   periodId: z.string(),
 });
 
-/** Xuất PDF một hộ (tự tạo hóa đơn nếu chưa có). */
+/** Xuất PDF một hộ (tự tạo hóa đơn nếu chưa có, lưu link n8n nếu bật). */
 export async function POST(request: Request) {
   try {
     const session = await getSession();

@@ -43,7 +43,7 @@ export function ExportInvoiceButton({
         className="text-sm font-medium text-[var(--primary)] hover:underline disabled:opacity-50"
         onClick={exportPdf}
         disabled={loading}
-        title="Tạo PDF lưu máy chủ (không qua n8n)"
+        title="Tạo PDF hóa đơn và lưu link"
       >
         {loading ? "Đang tạo…" : hasPdf ? "Tạo lại PDF" : "Xuất PDF"}
       </button>

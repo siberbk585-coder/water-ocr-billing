@@ -6,7 +6,7 @@ import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
-/** Xuất 1 PDF tại chỗ (storage local) — không qua webhook Hoadon. */
+/** Xuất 1 PDF, lưu link n8n nếu bật webhook hoặc fallback local khi dev. */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
