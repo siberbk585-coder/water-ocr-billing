@@ -93,13 +93,9 @@ export default async function SubmitReadingPage() {
           periodId={currentPeriod.id}
           oldReading={await getOldReading(user.householdId, currentPeriod.id)}
           initialCsm={
-            currentReading?.confirmedValue != null &&
-            currentReading.status !== ReadingStatus.CONFIRMED
+            currentReading?.confirmedValue != null
               ? String(currentReading.confirmedValue)
-              : currentReading?.status === ReadingStatus.CONFIRMED &&
-                  currentReading.confirmedValue != null
-                ? String(currentReading.confirmedValue)
-                : ""
+              : ""
           }
           canSubmit={
             submitGate.allowed &&

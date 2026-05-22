@@ -8,8 +8,8 @@ const monthlySteps = [
     cta: "Mở chờ chốt",
   },
   {
-    title: "2. Hóa đơn & Zalo",
-    body: "Sau khi chốt CSM, tạo hóa đơn kỳ, xuất PDF và gửi Zalo OA + QR qua n8n cho hộ dân.",
+    title: "2. Hóa đơn",
+    body: "Sau khi chốt CSM: chốt hóa đơn kỳ (tính tổng tiền), xuất PDF từng hộ trên bảng thu.",
     href: "/admin/invoices",
     cta: "Mở hóa đơn",
   },
@@ -34,7 +34,7 @@ export default function AdminOperationsPage() {
         <h1 className="text-2xl font-bold">Quy trình vận hành</h1>
         <p className="text-sm text-[var(--muted)]">
           Cấu trúc ứng dụng theo một luồng thu tiền nước hàng tháng: ghi số, chốt,
-          lập hóa đơn, gửi Zalo, thu tiền và khóa sổ.
+          lập hóa đơn, thu tiền và khóa sổ.
         </p>
       </div>
 
@@ -56,11 +56,11 @@ export default function AdminOperationsPage() {
           <RoleCard title="Hộ dân" body="Gửi CSM và xem hóa đơn của mình trên app." />
           <RoleCard
             title="Tổ trưởng / Kế toán"
-            body="Chốt chỉ số, tạo hóa đơn, gửi Zalo, xác nhận đã thu."
+            body="Chốt chỉ số, chốt hóa đơn, xuất PDF, xác nhận đã thu."
           />
           <RoleCard
             title="n8n / VPS"
-            body="Lưu ảnh và PDF lên Drive, gửi Zalo OA kèm QR thanh toán."
+            body="Lưu ảnh đồng hồ lên Drive (tùy cấu hình webhook)."
           />
         </div>
       </section>
@@ -89,7 +89,7 @@ export default function AdminOperationsPage() {
                   <span className="badge badge-success">Đã xác nhận</span>
                 </td>
                 <td>Đã chốt và được dùng để tính cước.</td>
-                <td>Tạo hóa đơn, gửi Zalo, thu tiền.</td>
+                <td>Chốt hóa đơn, xuất PDF, thu tiền.</td>
               </tr>
               <tr>
                 <td>

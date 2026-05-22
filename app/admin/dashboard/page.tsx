@@ -27,7 +27,6 @@ export default async function AdminDashboardPage() {
     issuedInvoices,
     paidInvoices,
     missingPdf,
-    pendingZalo,
     invoiceTotal,
     paidTotal,
   ] = await Promise.all([
@@ -46,9 +45,6 @@ export default async function AdminDashboardPage() {
     }),
     prisma.invoice.count({
       where: { periodId, pdfPath: null },
-    }),
-    prisma.invoice.count({
-      where: { periodId, zaloSentAt: null },
     }),
     prisma.invoice.aggregate({
       where: { periodId },
@@ -152,11 +148,11 @@ export default async function AdminDashboardPage() {
             />
             <WorkflowStep
               number="3"
-              title="Hóa đơn & Zalo"
-              body="Tạo hóa đơn cho hộ đã chốt, xuất PDF và gửi Zalo OA + QR qua n8n."
+              title="Hóa đơn"
+              body="Chốt hóa đơn kỳ (tính tổng tiền), xuất PDF từng hộ trên bảng thu."
               href="/admin/invoices"
               cta="Mở hóa đơn"
-              status={`${issuedInvoices} chưa TT, ${pendingZalo} chưa gửi Zalo`}
+              status={`${issuedInvoices} chưa TT · ${missingPdf} chưa có PDF`}
             />
             <WorkflowStep
               number="4"

@@ -11,7 +11,7 @@ export function GenerateInvoicesButton({ periodId }: { periodId: string }) {
   async function generate() {
     if (
       !confirm(
-        "Tạo hóa đơn PDF (QR) và đẩy lên n8n Hoadon? DB chỉ lưu link — có thể mất vài phút."
+        "Chốt hóa đơn kỳ này: tính tổng tiền cho mọi hộ đã chốt chỉ số? (Không tạo PDF — xuất PDF từng hộ trên Bảng thu nước.)"
       )
     ) {
       return;
@@ -30,16 +30,16 @@ export function GenerateInvoicesButton({ periodId }: { periodId: string }) {
         error?: string;
       }>(res);
       if (res.ok && data.created != null) {
-        let msg = `Đã tạo ${data.created} hóa đơn PDF.`;
+        let msg = `Đã chốt ${data.created} hóa đơn (đã tính tổng tiền).`;
         if (data.failed) msg += ` ${data.failed} lỗi.`;
         if (data.errors?.length) msg += `\n${data.errors.join("\n")}`;
         alert(msg);
         router.refresh();
       } else {
-        alert(data.error ?? "Không tạo được hóa đơn");
+        alert(data.error ?? "Không chốt được hóa đơn");
       }
     } catch {
-      alert("Lỗi kết nối hoặc quá thời gian chờ. Thử lại.");
+      alert("Lỗi kết nối. Thử lại.");
     } finally {
       setLoading(false);
     }
@@ -47,7 +47,7 @@ export function GenerateInvoicesButton({ periodId }: { periodId: string }) {
 
   return (
     <button type="button" className="btn btn-primary" onClick={generate} disabled={loading}>
-      {loading ? "Đang tạo..." : "Tạo hóa đơn kỳ này"}
+      {loading ? "Đang chốt…" : "Chốt hóa đơn kỳ"}
     </button>
   );
 }

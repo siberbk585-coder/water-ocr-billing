@@ -13,6 +13,8 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "tsx prisma/seed.ts",
+    "db:seed-test-residents": "tsx scripts/seed-test-residents.ts",
     "db:studio": "prisma studio",
     "mcp:upload": "node scripts/mcp-image-upload.mjs",
     "test:hoadon": "node scripts/test-hoadon-webhook.mjs",

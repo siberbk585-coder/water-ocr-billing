@@ -17,6 +17,17 @@ export const COLLECTION_ROUTES = [
   { code: "doc-hau", name: "DỘC HẬU", sortOrder: 8, unitPrice: 15_000 },
 ] as const;
 
+/** 20 hộ có tài khoản app — chưa gửi chỉ số kỳ hiện tại (test gửi CSM). */
+export const TEST_RESIDENT_ACCOUNTS = Array.from({ length: 20 }, (_, i) => {
+  const n = i + 1;
+  return {
+    phone: `0920000${String(n).padStart(3, "0")}`,
+    mkh: `TEST${String(n).padStart(3, "0")}`,
+    meterCode: `TEST${String(n).padStart(5, "0")}`,
+    name: `Hộ test ${n}`,
+  };
+});
+
 export const STREETS = [
   "Lê Lợi",
   "Nguyễn Huệ",

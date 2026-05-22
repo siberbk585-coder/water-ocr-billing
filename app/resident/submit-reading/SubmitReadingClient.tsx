@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { compressImageForUpload } from "@/lib/imageClient";
 
 export function SubmitReadingClient({
   periodId,
@@ -18,31 +17,9 @@ export function SubmitReadingClient({
   submitBlockedReason?: string;
 }) {
   const router = useRouter();
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [value, setValue] = useState(initialCsm);
+  const [value, setValue] = useState(() => initialCsm ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  function pickFile(next: File | null) {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setFile(next);
-    setPreviewUrl(next ? URL.createObjectURL(next) : null);
-    setError("");
-  }
-
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    pickFile(e.target.files?.[0] ?? null);
-    e.target.value = "";
-  }
-
-  function clearImage() {
-    pickFile(null);
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
 
   async function submit() {
     const confirmedValue = parseFloat(value);
@@ -61,10 +38,6 @@ export function SubmitReadingClient({
       const fd = new FormData();
       fd.append("periodId", periodId);
       fd.append("confirmedValue", String(confirmedValue));
-      if (file) {
-        const uploadFile = await compressImageForUpload(file);
-        fd.append("image", uploadFile);
-      }
 
       const res = await fetch("/api/readings/submit", { method: "POST", body: fd });
       const body = await res.json();
@@ -73,7 +46,6 @@ export function SubmitReadingClient({
         return;
       }
       router.refresh();
-      clearImage();
       setValue("");
       alert("Đã gửi chỉ số. Chờ tổ trưởng/kế toán chốt tháng này.");
     } catch {
@@ -96,82 +68,9 @@ export function SubmitReadingClient({
 
   return (
     <div className="card space-y-4">
-      <p className="text-sm text-[var(--muted)]">
-        Nhập <strong>chỉ số mới (CSM)</strong> trên đồng hồ. Ảnh tùy chọn (gửi qua n8n). Sau khi
-        gửi, tổ trưởng/kế toán sẽ <strong>chốt</strong> chỉ số cho tháng này.
-      </p>
-      {!canSubmit && (
-        <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">
-          Chỉ số tháng này đã được chốt. Nếu cần sửa, liên hệ nhân viên thu nước.
-        </p>
-      )}
       <p className="rounded-lg bg-[var(--primary-soft)] px-3 py-2 text-sm text-[var(--primary-dark)]">
         Chỉ số cũ (CSC) kỳ trước: <strong>{oldReading} m³</strong>
       </p>
-
-      <div>
-        <span className="label">Ảnh đồng hồ (tùy chọn)</span>
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="sr-only"
-          aria-hidden
-          onChange={onFileChange}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="sr-only"
-          aria-hidden
-          onChange={onFileChange}
-        />
-
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="btn btn-primary flex-1 min-w-[140px]"
-            onClick={() => cameraInputRef.current?.click()}
-          >
-            Chụp ảnh
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary flex-1 min-w-[140px]"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Chọn tệp
-          </button>
-        </div>
-
-        {previewUrl && file && (
-          <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--card-muted)] p-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt="Ảnh đồng hồ đã chọn"
-              className="mx-auto max-h-48 w-full rounded-lg object-contain"
-            />
-            <p className="mt-2 truncate text-center text-xs text-[var(--muted)]">{file.name}</p>
-            <button
-              type="button"
-              className="btn btn-secondary mt-2 w-full py-1.5 text-sm"
-              onClick={clearImage}
-            >
-              Chọn ảnh khác
-            </button>
-          </div>
-        )}
-
-        {!file && (
-          <p className="mt-2 text-xs text-[var(--muted)]">
-            Trên điện thoại: <strong>Chụp ảnh</strong> mở camera sau; <strong>Chọn tệp</strong> mở
-            thư viện ảnh.
-          </p>
-        )}
-      </div>
 
       <div>
         <label className="label" htmlFor="csm-input">
@@ -184,7 +83,7 @@ export function SubmitReadingClient({
           step="0.01"
           min={oldReading}
           placeholder={`Ví dụ: ${oldReading + 10}`}
-          value={value}
+          value={value ?? ""}
           onChange={(e) => setValue(e.target.value)}
         />
       </div>

@@ -1,8 +1,17 @@
-import { PrismaClient, ReadingStatus, UserRole, InputMethod } from "@prisma/client";
+import {
+  PrismaClient,
+  ReadingStatus,
+  UserRole,
+  InputMethod,
+  InvoiceStatus,
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { calculateTotal } from "../lib/billing";
+import { unitPriceForHousehold } from "../lib/routePricing";
 import {
   COLLECTION_ROUTES,
   PRICE_GROUPS,
+  TEST_RESIDENT_ACCOUNTS,
   adminDisplayName,
   demoResidentName,
   randomAddress,
@@ -11,10 +20,55 @@ import {
 
 const prisma = new PrismaClient();
 
-const HOUSEHOLD_COUNT = 250;
+/** Số hộ chính (không tính 20 hộ test). */
+const HOUSEHOLD_COUNT = 80;
+const DEMO_PASSWORD = "123456";
 
 function periodLabel(year: number, month: number) {
   return `Tháng ${month}/${year}`;
+}
+
+type HouseholdWithRoute = {
+  id: string;
+  priceGroup: { unitPrice: number };
+  collectionRoute: { unitPrice: number | null } | null;
+};
+
+async function seedInvoiceForReading(
+  household: HouseholdWithRoute,
+  periodId: string,
+  usageM3: number,
+  opts?: { paid?: boolean }
+) {
+  const unitPrice = unitPriceForHousehold(household);
+  const totalAmount = calculateTotal(usageM3, unitPrice);
+  const invoice = await prisma.invoice.create({
+    data: {
+      householdId: household.id,
+      periodId,
+      usageM3,
+      unitPrice,
+      totalAmount,
+      status: opts?.paid ? InvoiceStatus.PAID : InvoiceStatus.ISSUED,
+      issuedAt: new Date(),
+    },
+  });
+  if (opts?.paid) {
+    const admin = await prisma.user.findFirst({
+      where: { role: UserRole.ADMIN },
+      select: { id: true },
+    });
+    await prisma.payment.create({
+      data: {
+        invoiceId: invoice.id,
+        amount: totalAmount,
+        method: "CASH",
+        note: "Seed demo",
+        confirmedAt: new Date(),
+        confirmedById: admin?.id,
+      },
+    });
+  }
 }
 
 async function main() {
@@ -28,6 +82,7 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.billingPeriod.deleteMany();
   await prisma.priceGroup.deleteMany();
+  await prisma.systemSettings.deleteMany();
 
   const priceGroups = await Promise.all(
     PRICE_GROUPS.map((g) =>
@@ -50,13 +105,16 @@ async function main() {
     )
   );
 
-  const adminHash = await bcrypt.hash("123456", 10);
-  const residentHash = await bcrypt.hash("123456", 10);
+  await prisma.systemSettings.create({
+    data: { id: "default", periodCloseDay: 25 },
+  });
+
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
   await prisma.user.create({
     data: {
       phone: "0900000001",
-      passwordHash: adminHash,
+      passwordHash,
       name: adminDisplayName(),
       role: UserRole.ADMIN,
     },
@@ -83,7 +141,7 @@ async function main() {
   const demoResident = await prisma.user.create({
     data: {
       phone: "0912345678",
-      passwordHash: residentHash,
+      passwordHash,
       name: demoResidentName(),
       role: UserRole.RESIDENT,
     },
@@ -91,6 +149,12 @@ async function main() {
 
   const routeCount = routes.length;
   const perRoute = Math.ceil(HOUSEHOLD_COUNT / routeCount);
+
+  let pendingCount = 0;
+  let confirmedCount = 0;
+  let noReadingCount = 0;
+  let rejectedCount = 0;
+  let invoiceCount = 0;
 
   for (let i = 1; i <= HOUSEHOLD_COUNT; i++) {
     const routeIndex = Math.min(routeCount - 1, Math.floor((i - 1) / perRoute));
@@ -116,6 +180,10 @@ async function main() {
         collectionRouteId: route.id,
         routeSortOrder: routeSeq,
       },
+      include: {
+        priceGroup: true,
+        collectionRoute: { select: { unitPrice: true } },
+      },
     });
 
     let prevConfirmed = baseReading;
@@ -140,34 +208,134 @@ async function main() {
       prevConfirmed = confirmed;
     }
 
-    // Kỳ hiện tại: một phần đã chốt, một phần chờ chốt (demo bảng thu)
     const usageNow = 8 + (i % 6);
     const csmNow = prevConfirmed + usageNow;
-    const statusNow =
-      i % 5 === 0 ? ReadingStatus.PENDING : ReadingStatus.CONFIRMED;
+
+    if (i % 7 === 0) {
+      noReadingCount++;
+      continue;
+    }
+
+    if (i % 13 === 0) {
+      await prisma.meterReading.create({
+        data: {
+          householdId: household.id,
+          periodId: currentPeriod.id,
+          oldReading: prevConfirmed,
+          ocrValue: csmNow,
+          confirmedValue: csmNow,
+          usageM3: usageNow,
+          status: ReadingStatus.REJECTED,
+          anomalyFlags: "[]",
+        },
+      });
+      rejectedCount++;
+      continue;
+    }
+
+    if (i % 5 === 0) {
+      await prisma.meterReading.create({
+        data: {
+          householdId: household.id,
+          periodId: currentPeriod.id,
+          oldReading: prevConfirmed,
+          ocrValue: csmNow,
+          status: ReadingStatus.PENDING,
+          anomalyFlags: "[]",
+        },
+      });
+      pendingCount++;
+      continue;
+    }
+
     await prisma.meterReading.create({
       data: {
         householdId: household.id,
         periodId: currentPeriod.id,
         oldReading: prevConfirmed,
-        ocrValue: statusNow === ReadingStatus.PENDING ? csmNow : undefined,
-        confirmedValue: statusNow === ReadingStatus.CONFIRMED ? csmNow : null,
-        usageM3: statusNow === ReadingStatus.CONFIRMED ? usageNow : null,
-        inputMethod:
-          statusNow === ReadingStatus.CONFIRMED ? InputMethod.MANUAL : undefined,
-        status: statusNow,
-        confirmedAt: statusNow === ReadingStatus.CONFIRMED ? new Date() : null,
+        confirmedValue: csmNow,
+        usageM3: usageNow,
+        inputMethod: InputMethod.MANUAL,
+        status: ReadingStatus.CONFIRMED,
+        confirmedAt: new Date(),
+        anomalyFlags: "[]",
       },
     });
+    confirmedCount++;
+    await seedInvoiceForReading(household, currentPeriod.id, usageNow, {
+      paid: i % 17 === 0,
+    });
+    invoiceCount++;
   }
 
-  console.log(`Đã seed ${HOUSEHOLD_COUNT} hộ dân, ${routes.length} khu vực (giá theo khu vực), ${periods.length} kỳ`);
-  for (const r of routes) {
-    console.log(`  · ${r.name}: ${r.unitPrice?.toLocaleString("vi-VN")} đ/m³`);
+  const testRoute = routes[0];
+  const testPg = priceGroups[0];
+  for (const t of TEST_RESIDENT_ACCOUNTS) {
+    const user = await prisma.user.create({
+      data: {
+        phone: t.phone,
+        passwordHash,
+        name: t.name,
+        role: UserRole.RESIDENT,
+      },
+    });
+
+    const baseReading = 200 + parseInt(t.mkh.replace(/\D/g, ""), 10);
+    const household = await prisma.household.create({
+      data: {
+        householdCode: t.mkh,
+        meterCode: t.meterCode,
+        address: `Nhà test — ${testRoute.name}`,
+        residentName: t.name,
+        contactPhone: t.phone,
+        priceGroupId: testPg.id,
+        userId: user.id,
+        collectionRouteId: testRoute.id,
+        routeSortOrder: 900,
+      },
+      include: {
+        priceGroup: true,
+        collectionRoute: { select: { unitPrice: true } },
+      },
+    });
+
+    let prev = baseReading;
+    for (const period of periods.slice(0, 3)) {
+      const usage = 10;
+      const confirmed = prev + usage;
+      await prisma.meterReading.create({
+        data: {
+          householdId: household.id,
+          periodId: period.id,
+          oldReading: prev,
+          confirmedValue: confirmed,
+          usageM3: usage,
+          inputMethod: InputMethod.MANUAL,
+          status: ReadingStatus.CONFIRMED,
+          confirmedAt: new Date(period.year, period.month - 1, 10),
+          anomalyFlags: "[]",
+        },
+      });
+      prev = confirmed;
+    }
+    noReadingCount++;
   }
-  console.log("Tài khoản quản trị: 0900000001 / 123456");
-  console.log("Tài khoản hộ dân: 0912345678 / 123456 (MKH 212001)");
+
+  const totalHouseholds = HOUSEHOLD_COUNT + TEST_RESIDENT_ACCOUNTS.length;
+
+  console.log("\n=== Dataset demo đã sẵn sàng ===\n");
   console.log(`Kỳ hiện tại: ${periodLabel(currentPeriod.year, currentPeriod.month)}`);
+  console.log(`Hộ: ${totalHouseholds} (${HOUSEHOLD_COUNT} chính + ${TEST_RESIDENT_ACCOUNTS.length} test)`);
+  console.log(`Kỳ này — chưa gửi: ${noReadingCount} · chờ chốt: ${pendingCount} · từ chối: ${rejectedCount} · đã chốt: ${confirmedCount} · hóa đơn: ${invoiceCount}`);
+  console.log("\nKhu vực / giá (đ/m³):");
+  for (const r of routes) {
+    console.log(`  · ${r.name}: ${r.unitPrice?.toLocaleString("vi-VN")}`);
+  }
+  console.log("\nĐăng nhập:");
+  console.log(`  Admin: 0900000001 / ${DEMO_PASSWORD}`);
+  console.log(`  Hộ demo (đã chốt kỳ này): 0912345678 / ${DEMO_PASSWORD} — MKH 212001`);
+  console.log(`  Hộ test (chưa gửi CSM): 0920000001 … 0920000020 / ${DEMO_PASSWORD}`);
+  console.log(`  Ví dụ MKH test: TEST001 … TEST020\n`);
 }
 
 main()

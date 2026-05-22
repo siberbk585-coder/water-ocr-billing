@@ -57,7 +57,7 @@ export default async function ResidentInvoicesPage() {
                   )}
                   {!inv.payment && inv.status === InvoiceStatus.ISSUED && (
                     <span className="mt-1 block text-xs text-[var(--muted)]">
-                      Chưa thanh toán — chuyển khoản theo QR trên Zalo
+                      Chưa thanh toán — liên hệ Ban quản lý để nộp tiền
                     </span>
                   )}
                 </td>

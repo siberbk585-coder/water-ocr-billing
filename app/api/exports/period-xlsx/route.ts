@@ -26,8 +26,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Không tìm thấy kỳ" }, { status: 404 });
   }
 
+  const exportedAt = new Date();
   const buffer = await buildPeriodRouteExportBuffer(periodId);
-  const filename = periodExportFilename(period.month, period.year);
+  const filename = periodExportFilename(period.month, period.year, exportedAt);
 
   await logAudit({
     actorId: session.id,

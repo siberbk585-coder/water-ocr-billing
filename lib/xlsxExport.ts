@@ -373,7 +373,17 @@ export async function buildPeriodRouteExportBuffer(periodId: string): Promise<Bu
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx", cellStyles: true }) as Buffer;
 }
 
-export function periodExportFilename(month: number, year: number): string {
+export function periodExportFilename(
+  month: number,
+  year: number,
+  exportedAt: Date = new Date()
+): string {
   const m = String(month).padStart(2, "0");
-  return `nuoc-thang-${m}-${year}.xlsx`;
+  const ey = exportedAt.getFullYear();
+  const em = String(exportedAt.getMonth() + 1).padStart(2, "0");
+  const ed = String(exportedAt.getDate()).padStart(2, "0");
+  const eh = String(exportedAt.getHours()).padStart(2, "0");
+  const emin = String(exportedAt.getMinutes()).padStart(2, "0");
+  const esec = String(exportedAt.getSeconds()).padStart(2, "0");
+  return `nuoc-thang-${m}-${year}-xuat-${ey}${em}${ed}-${eh}${emin}${esec}.xlsx`;
 }

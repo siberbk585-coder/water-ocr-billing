@@ -1,47 +1,22 @@
 import { InvoiceStatus, ReadingStatus } from "@prisma/client";
 import { calculateTotal } from "./billing";
 import { unitPriceForHousehold } from "./routePricing";
+import { syncInvoiceForConfirmedReading } from "./invoices";
 import { prisma } from "./db";
 import { generateInvoicePdf } from "./pdf";
 import { saveBuffer } from "./storage";
 import { formatPeriod } from "./vi";
 
-/** Đảm bảo có bản ghi hóa đơn từ chỉ số đã chốt. */
+/** Đảm bảo có hóa đơn đã tính tổng tiền từ chỉ số đã chốt. */
 export async function ensureInvoiceForHouseholdPeriod(
   householdId: string,
   periodId: string
 ): Promise<string> {
-  const existing = await prisma.invoice.findUnique({
-    where: { householdId_periodId: { householdId, periodId } },
-    select: { id: true },
-  });
-  if (existing) return existing.id;
-
-  const reading = await prisma.meterReading.findUnique({
-    where: { householdId_periodId: { householdId, periodId } },
-    include: { household: { include: { priceGroup: true, collectionRoute: true } } },
-  });
-  if (!reading || reading.status !== ReadingStatus.CONFIRMED) {
+  const synced = await syncInvoiceForConfirmedReading(householdId, periodId);
+  if (!synced) {
     throw new Error("Hộ chưa chốt số — chốt trên bảng trước");
   }
-  if (reading.confirmedValue == null || reading.usageM3 == null) {
-    throw new Error("Thiếu chỉ số đã chốt");
-  }
-
-  const unitPrice = unitPriceForHousehold(reading.household);
-  const totalAmount = calculateTotal(reading.usageM3, unitPrice);
-  const inv = await prisma.invoice.create({
-    data: {
-      householdId,
-      periodId,
-      usageM3: reading.usageM3,
-      unitPrice,
-      totalAmount,
-      status: InvoiceStatus.ISSUED,
-      issuedAt: new Date(),
-    },
-  });
-  return inv.id;
+  return synced.id;
 }
 
 /** Tạo / cập nhật 1 hóa đơn PDF — lưu file local, không gọi n8n. */
@@ -90,8 +65,6 @@ export async function exportInvoicePdfLocal(invoiceId: string): Promise<{
     residentName: invoice.household.residentName,
     address: invoice.household.address,
     periodLabel: formatPeriod(invoice.period.month, invoice.period.year),
-    periodMonth: invoice.period.month,
-    periodYear: invoice.period.year,
     oldReading: reading.oldReading,
     newReading: reading.confirmedValue,
     usageM3,

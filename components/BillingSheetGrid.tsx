@@ -45,8 +45,8 @@ export function BillingSheetGrid({
     return "";
   }, []);
 
-  function getDraft(householdId: string, row: BillingSheetRow) {
-    if (drafts[householdId] !== undefined) return drafts[householdId];
+  function getDraft(householdId: string, row: BillingSheetRow): string {
+    if (drafts[householdId] !== undefined) return drafts[householdId] ?? "";
     return initDraft(row);
   }
 
@@ -68,7 +68,12 @@ export function BillingSheetGrid({
       usageM3: number | null;
     },
     unitPrice: number,
-    oldReading: number
+    oldReading: number,
+    invoice?: {
+      id: string;
+      totalAmount: number;
+      usageM3: number;
+    } | null
   ) {
     const csm = reading.confirmedValue ?? 0;
     const preview = previewBillingRow(oldReading, csm, unitPrice);
@@ -80,8 +85,9 @@ export function BillingSheetGrid({
               readingId: reading.id,
               csm,
               status: reading.status,
-              usageM3: reading.usageM3 ?? preview.usageM3,
-              totalAmount: preview.totalAmount,
+              usageM3: invoice?.usageM3 ?? reading.usageM3 ?? preview.usageM3,
+              totalAmount: invoice?.totalAmount ?? preview.totalAmount,
+              invoiceId: invoice?.id ?? r.invoiceId,
             }
           : r
       )
@@ -119,7 +125,13 @@ export function BillingSheetGrid({
         setErrors((e) => ({ ...e, [row.householdId]: body.error ?? "Lỗi lưu" }));
         return;
       }
-      applyReadingUpdate(row.householdId, body.reading, row.unitPrice, row.oldReading);
+      applyReadingUpdate(
+        row.householdId,
+        body.reading,
+        row.unitPrice,
+        row.oldReading,
+        body.invoice ?? null
+      );
       setDrafts((d) => {
         const next = { ...d };
         delete next[row.householdId];
@@ -158,7 +170,13 @@ export function BillingSheetGrid({
         setErrors((e) => ({ ...e, [row.householdId]: data.error ?? "Không chốt được" }));
         return;
       }
-      applyReadingUpdate(row.householdId, data.reading, row.unitPrice, row.oldReading);
+      applyReadingUpdate(
+        row.householdId,
+        data.reading,
+        row.unitPrice,
+        row.oldReading,
+        data.invoice ?? null
+      );
       setDrafts((d) => {
         const next = { ...d };
         delete next[row.householdId];

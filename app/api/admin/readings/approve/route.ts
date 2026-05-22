@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { approveReading } from "@/lib/readings";
+import { syncInvoiceForConfirmedReading } from "@/lib/invoices";
 
 const schema = z.object({
   readingId: z.string(),
@@ -26,7 +27,25 @@ export async function POST(request: Request) {
       actorId: session.id,
       confirmedValue: parsed.data.confirmedValue,
     });
-    return NextResponse.json({ ok: true, reading });
+    const invoice = await syncInvoiceForConfirmedReading(
+      reading.householdId,
+      reading.periodId
+    );
+    const usageM3 =
+      reading.usageM3 ??
+      (reading.confirmedValue != null
+        ? Math.max(0, reading.confirmedValue - reading.oldReading)
+        : null);
+    return NextResponse.json({
+      ok: true,
+      reading: {
+        id: reading.id,
+        confirmedValue: reading.confirmedValue,
+        usageM3,
+        status: reading.status,
+      },
+      invoice,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Không duyệt được";
     return NextResponse.json({ error: message }, { status: 400 });

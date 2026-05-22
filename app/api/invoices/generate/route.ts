@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { UserRole } from "@prisma/client";
+import { UserRole, ReadingStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { ReadingStatus, InvoiceStatus } from "@prisma/client";
-import { calculateTotal } from "@/lib/billing";
-import { unitPriceForHousehold } from "@/lib/routePricing";
-import { generateInvoicePdf } from "@/lib/pdf";
-import { postInvoicePdfToN8nWebhook, n8nInvoiceWebhookUrl } from "@/lib/n8nInvoicePdf";
-import { saveBuffer } from "@/lib/storage";
+import { syncInvoiceForConfirmedReading } from "@/lib/invoices";
 import { logAudit } from "@/lib/audit";
-import { formatPeriod } from "@/lib/vi";
 import { z } from "zod";
 
 const schema = z.object({ periodId: z.string() });
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 120;
 
+/** Chốt hóa đơn kỳ: tính tổng tiền cho mọi hộ đã chốt CSM (không tạo PDF). */
 export async function POST(request: Request) {
   try {
     const session = await getSession();
@@ -33,15 +28,12 @@ export async function POST(request: Request) {
         periodId: parsed.data.periodId,
         status: ReadingStatus.CONFIRMED,
       },
-      include: {
-        household: { include: { priceGroup: true, collectionRoute: true } },
-        period: true,
-      },
+      select: { householdId: true, periodId: true },
     });
 
     if (!readings.length) {
       return NextResponse.json({
-        error: "Không có chỉ số đã chốt trong kỳ này. Chốt CSM trên bảng ghi trước.",
+        error: "Không có chỉ số đã chốt trong kỳ này. Chốt CSM trên bảng thu trước.",
       });
     }
 
@@ -49,76 +41,16 @@ export async function POST(request: Request) {
     const errors: string[] = [];
 
     for (const r of readings) {
-      if (r.confirmedValue == null || r.usageM3 == null) continue;
       try {
-        const unitPrice = unitPriceForHousehold(r.household);
-        const totalAmount = calculateTotal(r.usageM3, unitPrice);
-
-        const invoice = await prisma.invoice.upsert({
-          where: {
-            householdId_periodId: {
-              householdId: r.householdId,
-              periodId: r.periodId,
-            },
-          },
-          create: {
-            householdId: r.householdId,
-            periodId: r.periodId,
-            usageM3: r.usageM3,
-            unitPrice,
-            totalAmount,
-            status: InvoiceStatus.ISSUED,
-            issuedAt: new Date(),
-          },
-          update: {
-            usageM3: r.usageM3,
-            unitPrice,
-            totalAmount,
-            status: InvoiceStatus.ISSUED,
-            issuedAt: new Date(),
-          },
-        });
-
-        const pdf = await generateInvoicePdf({
-          invoiceCode: invoice.id.slice(-8).toUpperCase(),
-          householdCode: r.household.householdCode,
-          meterCode: r.household.meterCode,
-          residentName: r.household.residentName,
-          address: r.household.address,
-          periodLabel: formatPeriod(r.period.month, r.period.year),
-          periodMonth: r.period.month,
-          periodYear: r.period.year,
-          oldReading: r.oldReading,
-          newReading: r.confirmedValue,
-          usageM3: r.usageM3,
-          unitPrice,
-          totalAmount,
-        });
-
-        const periodLabel = formatPeriod(r.period.month, r.period.year);
-        let pdfPath: string;
-        if (n8nInvoiceWebhookUrl()) {
-          const uploaded = await postInvoicePdfToN8nWebhook(pdf, {
-            invoiceId: invoice.id,
-            householdId: r.householdId,
-            periodId: r.periodId,
-            householdCode: r.household.householdCode,
-            meterCode: r.household.meterCode,
-            periodLabel,
-            totalAmount,
-          });
-          pdfPath = uploaded.url;
-        } else {
-          pdfPath = await saveBuffer("invoices", `${invoice.id}.pdf`, pdf);
-        }
-        await prisma.invoice.update({
-          where: { id: invoice.id },
-          data: { pdfPath },
-        });
-        created++;
+        const inv = await syncInvoiceForConfirmedReading(r.householdId, r.periodId);
+        if (inv) created++;
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Lỗi PDF";
-        errors.push(`${r.household.householdCode}: ${msg}`);
+        const h = await prisma.household.findUnique({
+          where: { id: r.householdId },
+          select: { householdCode: true },
+        });
+        const msg = e instanceof Error ? e.message : "Lỗi";
+        errors.push(`${h?.householdCode ?? r.householdId}: ${msg}`);
       }
     }
 
@@ -141,7 +73,7 @@ export async function POST(request: Request) {
       errors: errors.slice(0, 8),
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Không tạo được hóa đơn";
+    const message = e instanceof Error ? e.message : "Không chốt được hóa đơn";
     console.error("[invoices/generate]", e);
     return NextResponse.json({ error: message }, { status: 500 });
   }

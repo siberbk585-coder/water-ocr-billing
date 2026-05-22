@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { adminUpsertReading } from "@/lib/readings";
 import { calculateUsage } from "@/lib/billing";
+import { syncInvoiceForConfirmedReading } from "@/lib/invoices";
 import { prisma } from "@/lib/db";
 
 const schema = z.object({
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       actorId: session.id,
     });
     const usageM3 = reading.usageM3 ?? calculateUsage(confirmedValue, reading.oldReading);
+    const invoice = await syncInvoiceForConfirmedReading(householdId, periodId);
     return NextResponse.json({
       ok: true,
       reading: {
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
         usageM3,
         status: reading.status,
       },
+      invoice,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Không lưu được";

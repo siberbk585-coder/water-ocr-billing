@@ -13,10 +13,11 @@ export const appTitle = "Thu tiền nước";
 export const adminNav = [
   { href: "/admin/dashboard", label: "Tổng quan" },
   { href: "/admin/billing-sheet", label: "Bảng thu nước" },
-  { href: "/admin/invoices", label: "Hóa đơn & Zalo" },
+  { href: "/admin/invoices", label: "Hóa đơn" },
   { href: "/admin/payments", label: "Thu tiền" },
   { href: "/admin/households", label: "Danh sách hộ" },
   { href: "/admin/area-prices", label: "Giá khu vực" },
+  { href: "/admin/audit-log", label: "Nhật ký" },
 ] as const;
 
 export const residentNav = [
@@ -80,18 +81,18 @@ export function periodStatusLabel(status: import("@prisma/client").PeriodStatus)
 
 export function auditActionLabel(action: string): string {
   const map: Record<string, string> = {
-    READING_CONFIRMED: "Xác nhận chỉ số",
+    READING_CONFIRMED: "Chốt chỉ số",
     READING_SUBMITTED: "Hộ gửi chỉ số",
-    INVOICES_GENERATED: "Tạo hóa đơn",
-    INVOICES_ZALO_SENT: "Gửi hóa đơn Zalo",
     READING_REJECTED: "Từ chối chỉ số",
+    INVOICES_GENERATED: "Chốt hóa đơn kỳ",
+    INVOICE_EXPORT_LOCAL: "Xuất PDF hóa đơn",
+    INVOICES_ZALO_SENT: "Gửi hóa đơn Zalo",
     PERIOD_CLOSED: "Đóng kỳ",
     PAYMENT_CONFIRMED: "Xác nhận thanh toán",
     SHEETS_EXPORT: "Xuất báo cáo",
-    XLSX_EXPORT: "Xuất Excel tổng hợp",
-    XLSX_IMPORT: "Import Excel kỳ thu",
-    // legacy keys
-    INVOICES_GENERATED_LEGACY: "Tạo hóa đơn",
+    XLSX_EXPORT: "Xuất Excel",
+    XLSX_IMPORT: "Nhập Excel kỳ thu",
+    SETTINGS_UPDATED: "Cập nhật cài đặt",
   };
   return map[action] ?? action;
 }
@@ -101,7 +102,9 @@ export function entityLabel(entity: string): string {
     MeterReading: "Chỉ số đồng hồ",
     Invoice: "Hóa đơn",
     Payment: "Thanh toán",
-    Export: "Xuất dữ liệu",
+    Export: "Xuất / nhập dữ liệu",
+    BillingPeriod: "Kỳ thu",
+    SystemSettings: "Cài đặt hệ thống",
   };
   return map[entity] ?? entity;
 }
