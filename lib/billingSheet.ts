@@ -1,10 +1,12 @@
-import { ReadingStatus } from "@prisma/client";
+import { InvoiceStatus, ReadingStatus } from "@prisma/client";
 import { prisma } from "./db";
 import { calculateTotal, calculateUsage } from "./billing";
-import { getOldReading } from "./readings";
+import { unitPriceForHousehold } from "./routePricing";
 
 export type BillingSheetRow = {
   householdId: string;
+  meterCode: string;
+  routeName: string | null;
   routeSortOrder: number | null;
   residentName: string;
   contactPhone: string | null;
@@ -17,6 +19,11 @@ export type BillingSheetRow = {
   usageM3: number | null;
   totalAmount: number | null;
   hasImage: boolean;
+  imagePath: string | null;
+  invoiceId: string | null;
+  invoiceStatus: InvoiceStatus | null;
+  pdfPath: string | null;
+  paid: boolean;
 };
 
 export type RouteSummary = {
@@ -46,6 +53,8 @@ export async function loadBillingSheetRows(
   periodId: string,
   routeId: string | null
 ): Promise<BillingSheetRow[]> {
+  const period = await prisma.billingPeriod.findUniqueOrThrow({ where: { id: periodId } });
+
   const households = await prisma.household.findMany({
     where: {
       status: "ACTIVE",
@@ -53,42 +62,89 @@ export async function loadBillingSheetRows(
     },
     include: {
       priceGroup: true,
+      collectionRoute: { select: { name: true, unitPrice: true } },
       user: { select: { phone: true } },
       readings: {
         where: { periodId },
         take: 1,
       },
+      invoices: {
+        where: { periodId },
+        take: 1,
+        include: { payment: true },
+      },
     },
     orderBy: [{ routeSortOrder: "asc" }, { householdCode: "asc" }],
   });
 
+  const missingOldReadingHouseholdIds = households
+    .filter((h) => h.readings[0]?.oldReading == null)
+    .map((h) => h.id);
+
+  const priorReadingByHousehold = new Map<string, number>();
+  if (missingOldReadingHouseholdIds.length) {
+    const priorReadings = await prisma.meterReading.findMany({
+      where: {
+        householdId: { in: missingOldReadingHouseholdIds },
+        status: ReadingStatus.CONFIRMED,
+        confirmedValue: { not: null },
+        period: {
+          OR: [
+            { year: { lt: period.year } },
+            { year: period.year, month: { lt: period.month } },
+          ],
+        },
+      },
+      select: {
+        householdId: true,
+        confirmedValue: true,
+        period: { select: { year: true, month: true } },
+      },
+      orderBy: [
+        { householdId: "asc" },
+        { period: { year: "desc" } },
+        { period: { month: "desc" } },
+      ],
+    });
+
+    for (const reading of priorReadings) {
+      if (!priorReadingByHousehold.has(reading.householdId) && reading.confirmedValue != null) {
+        priorReadingByHousehold.set(reading.householdId, reading.confirmedValue);
+      }
+    }
+  }
+
   const rows: BillingSheetRow[] = [];
   for (const h of households) {
     const reading = h.readings[0] ?? null;
-    let oldReading = reading?.oldReading;
-    if (oldReading == null) {
-      oldReading = await getOldReading(h.id, periodId);
-    }
+    const invoice = h.invoices[0] ?? null;
+    const oldReading =
+      reading?.oldReading ??
+      priorReadingByHousehold.get(h.id) ??
+      fallbackOldReadingFromMeterCode(h.meterCode);
     const csm =
       reading?.status === ReadingStatus.CONFIRMED
         ? reading.confirmedValue
         : reading?.confirmedValue ?? reading?.ocrValue ?? null;
     const usageM3 =
       csm != null ? calculateUsage(csm, oldReading) : reading?.usageM3 ?? null;
+    const unitPrice = unitPriceForHousehold(h);
     const totalAmount =
       usageM3 != null && usageM3 > 0
-        ? calculateTotal(usageM3, h.priceGroup.unitPrice)
+        ? calculateTotal(usageM3, unitPrice)
         : usageM3 === 0
           ? 0
           : null;
 
     rows.push({
       householdId: h.id,
+      meterCode: h.meterCode,
+      routeName: h.collectionRoute?.name ?? null,
       routeSortOrder: h.routeSortOrder,
       residentName: h.residentName,
       contactPhone: h.contactPhone ?? h.user?.phone ?? null,
       householdCode: h.householdCode,
-      unitPrice: h.priceGroup.unitPrice,
+      unitPrice,
       oldReading,
       readingId: reading?.id ?? null,
       csm,
@@ -96,9 +152,19 @@ export async function loadBillingSheetRows(
       usageM3,
       totalAmount,
       hasImage: Boolean(reading?.imagePath),
+      imagePath: reading?.imagePath ?? null,
+      invoiceId: invoice?.id ?? null,
+      invoiceStatus: invoice?.status ?? null,
+      pdfPath: invoice?.pdfPath ?? null,
+      paid: invoice?.status === InvoiceStatus.PAID,
     });
   }
   return rows;
+}
+
+function fallbackOldReadingFromMeterCode(meterCode: string): number {
+  const base = parseInt(meterCode.replace(/\D/g, "").slice(-3) || "100", 10);
+  return 100 + (base % 50);
 }
 
 export async function loadRouteSummaries(periodId: string): Promise<RouteSummary[]> {
@@ -173,4 +239,3 @@ export async function loadRouteSummaries(periodId: string): Promise<RouteSummary
 
   return summaries;
 }
-

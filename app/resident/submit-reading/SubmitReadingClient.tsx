@@ -8,10 +8,14 @@ export function SubmitReadingClient({
   periodId,
   oldReading,
   initialCsm = "",
+  canSubmit = true,
+  submitBlockedReason,
 }: {
   periodId: string;
   oldReading: number;
   initialCsm?: string;
+  canSubmit?: boolean;
+  submitBlockedReason?: string;
 }) {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -71,7 +75,7 @@ export function SubmitReadingClient({
       router.refresh();
       clearImage();
       setValue("");
-      alert("Đã lưu chỉ số vào hệ thống.");
+      alert("Đã gửi chỉ số. Chờ tổ trưởng/kế toán chốt tháng này.");
     } catch {
       setError("Lỗi kết nối. Thử lại.");
     } finally {
@@ -79,12 +83,28 @@ export function SubmitReadingClient({
     }
   }
 
+  if (!canSubmit) {
+    return (
+      <div className="card">
+        <p className="text-sm text-[var(--muted)]">
+          {submitBlockedReason ??
+            "Bạn đã gửi và chỉ số đã được chốt, hoặc kỳ đã đóng. Không thể gửi thêm từ trang này."}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="card space-y-4">
       <p className="text-sm text-[var(--muted)]">
-        Nhập <strong>chỉ số mới (CSM)</strong>. Có ảnh thì hệ thống gửi ảnh qua n8n lấy link rồi
-        lưu; không ảnh thì lưu chỉ số thẳng vào cơ sở dữ liệu.
+        Nhập <strong>chỉ số mới (CSM)</strong> trên đồng hồ. Ảnh tùy chọn (gửi qua n8n). Sau khi
+        gửi, tổ trưởng/kế toán sẽ <strong>chốt</strong> chỉ số cho tháng này.
       </p>
+      {!canSubmit && (
+        <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">
+          Chỉ số tháng này đã được chốt. Nếu cần sửa, liên hệ nhân viên thu nước.
+        </p>
+      )}
       <p className="rounded-lg bg-[var(--primary-soft)] px-3 py-2 text-sm text-[var(--primary-dark)]">
         Chỉ số cũ (CSC) kỳ trước: <strong>{oldReading} m³</strong>
       </p>

@@ -69,6 +69,8 @@ model CollectionRoute {
   code      String      @unique
   name      String
   sortOrder Int         @default(0)
+  /// Đơn giá VNĐ/m³ cho cả khu vực — ưu tiên hơn nhóm giá từng hộ
+  unitPrice Float?
   createdAt DateTime    @default(now())
   households Household[]
 }
@@ -130,22 +132,31 @@ model MeterReading {
 }
 
 model Invoice {
-  id          String        @id @default(cuid())
-  householdId String
-  household   Household     @relation(fields: [householdId], references: [id])
-  periodId    String
-  period      BillingPeriod @relation(fields: [periodId], references: [id])
-  usageM3     Float
-  unitPrice   Float
-  totalAmount Float
-  pdfPath     String?
-  status      InvoiceStatus @default(DRAFT)
-  issuedAt    DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  payment     Payment?
+  id            String        @id @default(cuid())
+  householdId   String
+  household     Household     @relation(fields: [householdId], references: [id])
+  periodId      String
+  period        BillingPeriod @relation(fields: [periodId], references: [id])
+  usageM3       Float
+  unitPrice     Float
+  totalAmount   Float
+  pdfPath       String?
+  status        InvoiceStatus @default(DRAFT)
+  issuedAt      DateTime?
+  zaloSentAt    DateTime?
+  zaloMessageId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  payment       Payment?
 
   @@unique([householdId, periodId])
+}
+
+model SystemSettings {
+  id             String   @id @default("default")
+  periodCloseDay Int      @default(25)
+  timezone       String   @default("Asia/Ho_Chi_Minh")
+  updatedAt      DateTime @updatedAt
 }
 
 model Payment {

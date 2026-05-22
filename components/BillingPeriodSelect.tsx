@@ -27,6 +27,8 @@ export function BillingPeriodSelect({
     } else if (routeId) {
       params.set("route", routeId);
       params.delete("view");
+    } else {
+      params.set("route", "all");
     }
     router.push(`/admin/billing-sheet?${params.toString()}`);
   }

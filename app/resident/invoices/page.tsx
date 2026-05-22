@@ -27,7 +27,7 @@ export default async function ResidentInvoicesPage() {
               <th>Kỳ</th>
               <th>Tiêu thụ</th>
               <th>Tổng tiền</th>
-              <th>Trạng thái</th>
+              <th>Trạng thái / Thanh toán</th>
               <th>PDF</th>
             </tr>
           </thead>
@@ -49,14 +49,25 @@ export default async function ResidentInvoicesPage() {
                   >
                     {invoiceStatusLabel(inv.status)}
                   </span>
+                  {inv.payment?.confirmedAt && (
+                    <span className="mt-1 block text-xs text-[var(--muted)]">
+                      Đã thanh toán{" "}
+                      {inv.payment.confirmedAt.toLocaleDateString("vi-VN")}
+                    </span>
+                  )}
+                  {!inv.payment && inv.status === InvoiceStatus.ISSUED && (
+                    <span className="mt-1 block text-xs text-[var(--muted)]">
+                      Chưa thanh toán — chuyển khoản theo QR trên Zalo
+                    </span>
+                  )}
                 </td>
                 <td>
                   {inv.pdfPath ? (
                     <Link
-                      href={`/api/invoices/${inv.id}/pdf`}
-                      className="text-[var(--primary)] hover:underline"
+                      href={`/invoice/${inv.id}`}
+                      className="font-medium text-[var(--primary)] hover:underline"
                     >
-                      Tải PDF
+                      Xem hóa đơn
                     </Link>
                   ) : (
                     "—"

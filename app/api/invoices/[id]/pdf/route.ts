@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getInvoiceForViewer } from "@/lib/invoiceAccess";
+import { isExternalPdfUrl } from "@/lib/invoicePdf";
 import { readStorageFile } from "@/lib/storage";
-import { UserRole } from "@prisma/client";
 
 export async function GET(
   _request: Request,
@@ -12,26 +12,22 @@ export async function GET(
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  const invoice = await prisma.invoice.findUnique({
-    where: { id },
-    include: { household: true },
-  });
-  if (!invoice?.pdfPath) {
+  const invoice = await getInvoiceForViewer(id, session);
+  if (!invoice) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (
-    session.role !== UserRole.ADMIN &&
-    invoice.householdId !== session.householdId
-  ) {
-    return NextResponse.json({ error: "Không có quyền" }, { status: 403 });
+  if (isExternalPdfUrl(invoice.pdfPath)) {
+    return NextResponse.redirect(invoice.pdfPath);
   }
 
   const buffer = await readStorageFile(invoice.pdfPath);
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="invoice-${invoice.id}.pdf"`,
+      "Content-Disposition": `inline; filename="invoice-${invoice.household.householdCode}.pdf"`,
+      "Cache-Control": "private, max-age=3600",
+      "X-Frame-Options": "SAMEORIGIN",
     },
   });
 }

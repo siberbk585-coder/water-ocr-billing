@@ -1,6 +1,6 @@
-# Water OCR Billing MVP
+# Thu tiền nước
 
-He thong ghi chi so dong ho nuoc: **chup anh + nhap tay**, tinh cuoc va hoa don PDF — Prisma + Postgres (Neon tren Vercel).
+Ứng dụng vận hành thu tiền nước theo tháng: hộ dân gửi chỉ số, tổ trưởng/kế toán chốt CSM, tạo hóa đơn, gửi Zalo OA + QR qua n8n, xác nhận đã thu và xuất Excel khóa sổ.
 
 ## Yeu cau
 
@@ -54,20 +54,24 @@ Chi de tham khao sau: [docs/OCR_MODEL_COLAB.md](docs/OCR_MODEL_COLAB.md)
 | `npm run db:seed` | Seed 250 ho + 3 thang lich su |
 | `npm run db:studio` | Prisma Studio |
 
-## Luong nghiep vu
+## Luong nghiep vu chinh
 
 1. **Dan cu**: `/resident/submit-reading` — chup anh + nhap chi so → `POST /api/readings/submit`
-2. **Admin**: `/admin/readings` — xem canh bao bat thuong
-3. **Admin**: `/admin/invoices` — Tao hoa don + PDF
-4. **Admin**: `/admin/payments` — Xac nhan thanh toan
-5. **Export**: `GET /api/exports/sheets` — CSV; `POST` — stub Google Sheets
+2. **Admin**: `/admin/dashboard` — tong quan ky thu, checklist van hanh
+3. **Admin**: `/admin/billing-sheet` — bang thu nuoc theo ky/tuyen, chot CSM, danh dau da thu nhanh
+4. **Admin**: `/admin/invoices` — tao hoa don, xuat PDF, gui Zalo OA + QR
+5. **Admin**: `/admin/payments` — xac nhan thanh toan
+6. **Export**: `/admin/export`, `GET /api/exports/period-xlsx`, `GET /api/exports/xlsx`
 
 ## Cau truc chinh
 
-- `lib/anomaly.ts`, `lib/billing.ts` — logic thuan
-- `app/api/readings/submit` — Luu anh + chi so nhap tay (luong chinh)
-- `lib/storage.ts` — adapter file local (`storage/`)
-- `prisma/schema.prisma` — 9 bang
+- `app/admin/*` — man hinh to truong / ke toan
+- `app/resident/*` — man hinh ho dan
+- `lib/readings.ts`, `lib/billingSheet.ts`, `lib/billing.ts` — logic ghi so, bang thu, tinh tien
+- `lib/pdf.ts`, `lib/invoicePdfLocal.ts` — PDF hoa don
+- `lib/imageUpload.ts`, `lib/n8n*.ts` — ket noi n8n, Drive/Zalo
+- `prisma/schema.prisma` — schema Postgres
+- Chi tiet: [docs/APP_STRUCTURE.md](docs/APP_STRUCTURE.md)
 
 ## Deploy (Vercel + Neon free)
 

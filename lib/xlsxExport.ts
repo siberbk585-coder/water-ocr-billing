@@ -1,8 +1,7 @@
 import type { InputMethod, ReadingStatus } from "@prisma/client";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { parseAnomalyFlags } from "./anomaly";
 import { loadBillingSheetRows, loadRouteSummaries } from "./billingSheet";
-import { formatCurrency } from "./billing";
 import { prisma } from "./db";
 import {
   anomalyLabel,
@@ -13,11 +12,51 @@ import {
   invoiceStatusLabel,
   paymentMethodLabel,
   readingStatusLabel,
-  userRoleLabel,
 } from "./vi";
 
 function sheetFromRows<T extends Record<string, unknown>>(rows: T[]): XLSX.WorkSheet {
   return XLSX.utils.json_to_sheet(rows);
+}
+
+const editableFill = {
+  patternType: "solid",
+  fgColor: { rgb: "FFF2CC" },
+};
+
+const headerFill = {
+  patternType: "solid",
+  fgColor: { rgb: "DFF7F1" },
+};
+
+function applyHeaderStyle(ws: XLSX.WorkSheet) {
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:A1");
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const ref = XLSX.utils.encode_cell({ r: 0, c });
+    ws[ref] = ws[ref] ?? { t: "s", v: "" };
+    ws[ref].s = {
+      font: { bold: true },
+      fill: headerFill,
+      alignment: { horizontal: "center", vertical: "center" },
+    };
+  }
+}
+
+function highlightEditableColumns(ws: XLSX.WorkSheet, headers: string[]) {
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1:A1");
+  const editableHeaders = new Set(["CSM", "Đã thu (TT)"]);
+  for (const header of editableHeaders) {
+    const col = headers.indexOf(header);
+    if (col === -1) continue;
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      const ref = XLSX.utils.encode_cell({ r, c: col });
+      ws[ref] = ws[ref] ?? { t: "s", v: "" };
+      ws[ref].s = {
+        ...(ws[ref].s ?? {}),
+        fill: editableFill,
+        ...(r === 0 ? { font: { bold: true } } : {}),
+      };
+    }
+  }
 }
 
 function formatDate(d: Date | null | undefined): string {
@@ -137,6 +176,7 @@ export async function buildFullExportWorkbook(): Promise<XLSX.WorkBook> {
           "Trạng thái": readingStatusLabel(r.status as ReadingStatus),
           "Ngày gửi": formatDate(r.submittedAt),
           "Ngày xác nhận": formatDate(r.confirmedAt),
+          "Link ảnh": r.imagePath ?? "",
         };
       })
     ),
@@ -157,6 +197,8 @@ export async function buildFullExportWorkbook(): Promise<XLSX.WorkBook> {
         "Trạng thái": invoiceStatusLabel(inv.status),
         "Có PDF": inv.pdfPath ? "Có" : "Không",
         "Ngày phát hành": formatDate(inv.issuedAt),
+        "Đã gửi Zalo": formatDate(inv.zaloSentAt),
+        "Đã thu": inv.payment ? "Có" : "Chưa",
         "Ngày tạo": formatDate(inv.createdAt),
       }))
     ),
@@ -199,7 +241,7 @@ export async function buildFullExportWorkbook(): Promise<XLSX.WorkBook> {
 
 export async function buildFullExportBuffer(): Promise<Buffer> {
   const wb = await buildFullExportWorkbook();
-  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx", cellStyles: true }) as Buffer;
   return buf;
 }
 
@@ -224,54 +266,111 @@ export async function buildPeriodRouteWorkbook(periodId: string): Promise<XLSX.W
   });
   const wb = XLSX.utils.book_new();
   const periodTitle = `${period.month}/${period.year}`;
+  const editableHeaders = [
+    "STT",
+    "Họ và tên",
+    "SĐT",
+    "MKH",
+    "Khu vực",
+    "Giá (đ/m³)",
+    "CSC",
+    "CSM",
+    "Trạng thái duyệt",
+    "Link ảnh",
+    "Tiêu thụ (m³)",
+    "Tiền (VND)",
+    "Đã thu (TT)",
+  ];
 
-  for (const route of routes) {
+  const guide = sheetFromRows([
+    {
+      "Cách dùng": "Chỉ sửa các cột bôi vàng",
+      "Cột được sửa": "CSM",
+      "Giá trị hợp lệ": "Số chỉ số mới, lớn hơn hoặc bằng CSC",
+    },
+    {
+      "Cách dùng": "Chỉ sửa các cột bôi vàng",
+      "Cột được sửa": "Đã thu (TT)",
+      "Giá trị hợp lệ": "Nhập Đã thu, da thu, x, yes hoặc 1 để đánh dấu đã thanh toán",
+    },
+    {
+      "Cách dùng": "Không đổi MKH, CSC, tên hộ, tiền hoặc tên sheet",
+      "Cột được sửa": "",
+      "Giá trị hợp lệ": "Upload lại file tại trang Excel hoặc Bảng thu nước",
+    },
+  ]);
+  applyHeaderStyle(guide);
+  XLSX.utils.book_append_sheet(wb, guide, "HUONG DAN");
+
+  const routeSheets =
+    routes.length > 0
+      ? routes.map((route) => ({ id: route.id as string | null, name: route.name }))
+      : [{ id: null, name: "TAT CA" }];
+
+  for (const route of routeSheets) {
     const rows = await loadBillingSheetRows(periodId, route.id);
     const sheetRows = rows.map((r, i) => ({
       STT: r.routeSortOrder ?? i + 1,
       "Họ và tên": r.residentName,
       SĐT: r.contactPhone ?? "",
       MKH: r.householdCode,
+      "Khu vực": r.routeName ?? "",
+      "Giá (đ/m³)": r.unitPrice,
       CSC: r.oldReading,
       CSM: r.csm ?? "",
+      "Trạng thái duyệt": r.status ? readingStatusLabel(r.status) : "",
+      "Link ảnh": r.imagePath ?? "",
       "Tiêu thụ (m³)":
         r.usageM3 ?? (r.csm != null ? Math.max(0, (r.csm ?? 0) - r.oldReading) : ""),
-      TT:
+      "Tiền (VND)":
         r.totalAmount != null && r.totalAmount > 0
           ? r.totalAmount
           : r.usageM3 === 0
-            ? "—"
+            ? 0
             : "",
+      "Đã thu (TT)": r.paid ? "Đã thu" : r.invoiceId ? "Chưa" : "",
     }));
-    XLSX.utils.book_append_sheet(
-      wb,
-      sheetFromRows(sheetRows),
-      sheetNameSafe(`${route.name} (${periodTitle})`)
-    );
+    const ws = sheetFromRows(sheetRows);
+    applyHeaderStyle(ws);
+    highlightEditableColumns(ws, editableHeaders);
+    ws["!cols"] = [
+      { wch: 6 },
+      { wch: 24 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 12 },
+      { wch: 14 },
+      { wch: 14 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, sheetNameSafe(`${route.name} (${periodTitle})`));
   }
 
   const summaries = await loadRouteSummaries(periodId);
-  XLSX.utils.book_append_sheet(
-    wb,
-    sheetFromRows(
-      summaries.map((s) => ({
-        Tuyến: s.routeName,
-        "Số hộ": s.householdCount,
-        "Đã ghi CSM": s.recordedCount,
-        "Chờ duyệt": s.pendingCount,
-        "Tổng STT (m³)": s.totalUsageM3,
-        "Tổng TT (VND)": s.totalAmount,
-      }))
-    ),
-    sheetNameSafe("TONG HOP")
+  const summaryWs = sheetFromRows(
+    summaries.map((s) => ({
+      Tuyến: s.routeName,
+      "Số hộ": s.householdCount,
+      "Đã ghi CSM": s.recordedCount,
+      "Chờ duyệt": s.pendingCount,
+      "Tổng STT (m³)": s.totalUsageM3,
+      "Tổng TT (VND)": s.totalAmount,
+    }))
   );
+  applyHeaderStyle(summaryWs);
+  XLSX.utils.book_append_sheet(wb, summaryWs, sheetNameSafe("TONG HOP"));
 
   return wb;
 }
 
 export async function buildPeriodRouteExportBuffer(periodId: string): Promise<Buffer> {
   const wb = await buildPeriodRouteWorkbook(periodId);
-  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  return XLSX.write(wb, { type: "buffer", bookType: "xlsx", cellStyles: true }) as Buffer;
 }
 
 export function periodExportFilename(month: number, year: number): string {

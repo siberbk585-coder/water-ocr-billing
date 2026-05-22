@@ -7,16 +7,16 @@ import type {
 } from "@prisma/client";
 import type { AnomalyCode } from "./anomaly";
 
-export const appTitle = "Hệ thống ghi chỉ số & hóa đơn nước";
+export const appTitle = "Thu tiền nước";
 
+/** Menu vận hành theo đúng quy trình thu tiền nước hàng tháng. */
 export const adminNav = [
-  { href: "/admin/billing-sheet", label: "Bảng ghi chỉ số" },
   { href: "/admin/dashboard", label: "Tổng quan" },
-  { href: "/admin/routes", label: "Tuyến thu" },
-  { href: "/admin/households", label: "Hộ dân" },
-  { href: "/admin/invoices", label: "Hóa đơn" },
-  { href: "/admin/payments", label: "Thanh toán" },
-  { href: "/admin/export", label: "Xuất dữ liệu" },
+  { href: "/admin/billing-sheet", label: "Bảng thu nước" },
+  { href: "/admin/invoices", label: "Hóa đơn & Zalo" },
+  { href: "/admin/payments", label: "Thu tiền" },
+  { href: "/admin/households", label: "Danh sách hộ" },
+  { href: "/admin/area-prices", label: "Giá khu vực" },
 ] as const;
 
 export const residentNav = [
@@ -83,9 +83,13 @@ export function auditActionLabel(action: string): string {
     READING_CONFIRMED: "Xác nhận chỉ số",
     READING_SUBMITTED: "Hộ gửi chỉ số",
     INVOICES_GENERATED: "Tạo hóa đơn",
+    INVOICES_ZALO_SENT: "Gửi hóa đơn Zalo",
+    READING_REJECTED: "Từ chối chỉ số",
+    PERIOD_CLOSED: "Đóng kỳ",
     PAYMENT_CONFIRMED: "Xác nhận thanh toán",
     SHEETS_EXPORT: "Xuất báo cáo",
     XLSX_EXPORT: "Xuất Excel tổng hợp",
+    XLSX_IMPORT: "Import Excel kỳ thu",
     // legacy keys
     INVOICES_GENERATED_LEGACY: "Tạo hóa đơn",
   };

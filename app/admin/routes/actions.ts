@@ -11,11 +11,18 @@ export async function createRoute(formData: FormData): Promise<void> {
   const sortOrder = parseInt(String(formData.get("sortOrder") ?? "0"), 10) || 0;
   if (!code || !name) return;
 
+  const defaultGroup = await prisma.priceGroup.findFirst({ orderBy: { code: "asc" } });
   await prisma.collectionRoute.create({
-    data: { code, name, sortOrder },
+    data: {
+      code,
+      name,
+      sortOrder,
+      unitPrice: defaultGroup?.unitPrice ?? 15000,
+    },
   });
   revalidatePath("/admin/routes");
   revalidatePath("/admin/billing-sheet");
+  revalidatePath("/admin/area-prices");
 }
 
 export async function updateRoute(formData: FormData): Promise<void> {

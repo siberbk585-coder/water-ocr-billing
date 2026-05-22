@@ -138,13 +138,15 @@ export function HouseholdPeriodPanel({
                 <Dd>{invoice.issuedAt?.toLocaleString("vi-VN") ?? "—"}</Dd>
                 {invoice.pdfPath && (
                   <>
-                    <Dt>File PDF</Dt>
+                    <Dt>Hóa đơn PDF</Dt>
                     <Dd>
                       <Link
-                        href={`/api/invoices/${invoice.id}/pdf`}
+                        href={`/invoice/${invoice.id}`}
                         className="font-semibold text-[var(--primary)] hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
-                        Tải hóa đơn
+                        Xem trực tiếp
                       </Link>
                     </Dd>
                   </>

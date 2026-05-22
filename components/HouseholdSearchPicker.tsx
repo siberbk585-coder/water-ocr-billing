@@ -110,6 +110,7 @@ export function HouseholdSearchPicker({
               <button
                 type="button"
                 role="option"
+                aria-selected={selectedId === h.id}
                 className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--primary-soft)]"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(h)}

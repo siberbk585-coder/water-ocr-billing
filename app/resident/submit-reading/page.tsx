@@ -1,8 +1,10 @@
 import { requireResident } from "@/lib/guards";
 import { prisma } from "@/lib/db";
 import { getOldReading, readingLastUpdatedAt } from "@/lib/readings";
+import { canResidentSubmitForPeriod } from "@/lib/settings";
 import { SubmitReadingClient } from "./SubmitReadingClient";
-import { formatPeriod } from "@/lib/vi";
+import { formatPeriod, readingStatusLabel } from "@/lib/vi";
+import { ReadingStatus } from "@prisma/client";
 
 export default async function SubmitReadingPage() {
   const user = await requireResident();
@@ -33,6 +35,10 @@ export default async function SubmitReadingPage() {
 
   const lastUpdatedAt = currentReading ? readingLastUpdatedAt(currentReading) : null;
 
+  const submitGate = currentPeriod
+    ? await canResidentSubmitForPeriod(currentPeriod)
+    : { allowed: false as const, reason: "Chưa có kỳ tính cước." };
+
   return (
     <>
       <h1 className="mb-4 text-2xl font-bold">Ghi chỉ số đồng hồ</h1>
@@ -45,8 +51,24 @@ export default async function SubmitReadingPage() {
             Kỳ hiện tại: {formatPeriod(currentPeriod.month, currentPeriod.year)}
           </p>
         )}
-        {lastUpdatedAt && (
+        {currentReading && (
           <p className="mt-2 text-sm text-slate-600">
+            Trạng thái kỳ này:{" "}
+            <strong>{readingStatusLabel(currentReading.status)}</strong>
+            {currentReading.status === ReadingStatus.PENDING && (
+              <span className="block text-[var(--muted)]">
+                Đã gửi — chờ tổ trưởng/kế toán chốt chỉ số tháng này.
+              </span>
+            )}
+            {currentReading.status === ReadingStatus.REJECTED && (
+              <span className="block text-[var(--danger)]">
+                Bị từ chối — vui lòng gửi lại chỉ số đúng.
+              </span>
+            )}
+          </p>
+        )}
+        {lastUpdatedAt && (
+          <p className="mt-1 text-sm text-slate-600">
             Cập nhật gần nhất:{" "}
             <strong>
               {lastUpdatedAt.toLocaleString("vi-VN", {
@@ -57,9 +79,9 @@ export default async function SubmitReadingPage() {
             {currentReading?.confirmedValue != null && (
               <>
                 {" "}
-                — CSM <strong>{currentReading.confirmedValue}</strong>
+                — CSM đã gửi/chốt: <strong>{currentReading.confirmedValue}</strong>
                 {currentReading.usageM3 != null && (
-                  <span> ({currentReading.usageM3} m³)</span>
+                  <span> (tiêu thụ {currentReading.usageM3} m³)</span>
                 )}
               </>
             )}
@@ -71,10 +93,21 @@ export default async function SubmitReadingPage() {
           periodId={currentPeriod.id}
           oldReading={await getOldReading(user.householdId, currentPeriod.id)}
           initialCsm={
-            currentReading?.confirmedValue != null
+            currentReading?.confirmedValue != null &&
+            currentReading.status !== ReadingStatus.CONFIRMED
               ? String(currentReading.confirmedValue)
-              : ""
+              : currentReading?.status === ReadingStatus.CONFIRMED &&
+                  currentReading.confirmedValue != null
+                ? String(currentReading.confirmedValue)
+                : ""
           }
+          canSubmit={
+            submitGate.allowed &&
+            (!currentReading ||
+              currentReading.status === ReadingStatus.REJECTED ||
+              currentReading.status === ReadingStatus.PENDING)
+          }
+          submitBlockedReason={!submitGate.allowed ? submitGate.reason : undefined}
         />
       ) : (
         <p>Chưa có kỳ tính cước.</p>

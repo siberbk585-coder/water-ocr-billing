@@ -21,13 +21,13 @@ export function BillingSheetSummary({ summaries, periodLabel }: Props) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-[var(--muted)]">
-        Tổng hợp kỳ <strong>{periodLabel}</strong> — giống tab TỔNG HỢP trên Excel.
+        Tổng hợp kỳ <strong>{periodLabel}</strong> — theo từng khu vực thu.
       </p>
       <div className="overflow-x-auto card p-0">
         <table className="table-modern">
           <thead className="border-b bg-slate-100 text-left text-xs uppercase">
             <tr>
-              <th>Tuyến</th>
+              <th>Khu vực</th>
               <th className="text-right">Số hộ</th>
               <th className="text-right">Đã ghi CSM</th>
               <th className="text-right">Chờ duyệt</th>

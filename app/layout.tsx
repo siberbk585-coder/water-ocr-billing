@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ghi chỉ số & hóa đơn nước",
-  description: "Hệ thống ghi chỉ số đồng hồ nước — chụp ảnh và nhập tay",
+  title: "Thu tiền nước",
+  description: "Ứng dụng ghi chỉ số, tạo hóa đơn, gửi Zalo và theo dõi thu tiền nước",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

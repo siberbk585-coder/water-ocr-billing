@@ -1,6 +1,16 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+  /** Khớp schema hiện tại — đổi sau `prisma generate` / migration. */
+  prismaSchemaKey?: string;
+};
+
+function prismaSchemaKey(): string {
+  const route = Prisma.dmmf.datamodel.models.find((m) => m.name === "CollectionRoute");
+  const fields = route?.fields.map((f) => f.name).join(",") ?? "";
+  return `CollectionRoute:${fields}`;
+}
 
 function createPrismaClient() {
   return new PrismaClient({
@@ -8,15 +18,14 @@ function createPrismaClient() {
   });
 }
 
-/** Tránh dùng Prisma singleton cũ sau `prisma generate` (thiếu model mới → lỗi findMany). */
+/** Tránh singleton Prisma cũ sau `prisma generate` (Turbopack HMR giữ process cũ). */
 function getPrisma(): PrismaClient {
+  const key = prismaSchemaKey();
   const cached = globalForPrisma.prisma;
-  const hasCollectionRoute =
-    cached != null &&
-    typeof (cached as PrismaClient & { collectionRoute?: { findMany?: unknown } })
-      .collectionRoute?.findMany === "function";
 
-  if (cached && hasCollectionRoute) return cached;
+  if (cached && globalForPrisma.prismaSchemaKey === key) {
+    return cached;
+  }
 
   if (cached) {
     void cached.$disconnect();
@@ -25,6 +34,7 @@ function getPrisma(): PrismaClient {
   const client = createPrismaClient();
   if (process.env.NODE_ENV !== "production") {
     globalForPrisma.prisma = client;
+    globalForPrisma.prismaSchemaKey = key;
   }
   return client;
 }

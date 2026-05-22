@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/ensure-postgres-env.mjs && next dev",
+    "dev": "node scripts/ensure-postgres-env.mjs && prisma generate && next dev",
     "dev:env": "node scripts/ensure-postgres-env.mjs",
     "build": "node scripts/prepare-db-env.mjs && prisma generate && prisma migrate deploy && next build",
     "db:migrate:deploy": "prisma migrate deploy",
@@ -15,6 +15,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "mcp:upload": "node scripts/mcp-image-upload.mjs",
+    "test:hoadon": "node scripts/test-hoadon-webhook.mjs",
     "postinstall": "prisma generate"
   },
   "prisma": {
@@ -32,6 +33,7 @@
     "sharp": "^0.34.5",
     "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

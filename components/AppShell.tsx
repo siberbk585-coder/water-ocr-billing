@@ -7,10 +7,13 @@ export function AppShell({
   user,
   children,
   nav,
+  headerActions,
 }: {
   user: SessionUser;
   children: React.ReactNode;
   nav: { href: string; label: string }[];
+  /** Nút/icon cạnh tên người dùng (vd cài đặt kỳ). */
+  headerActions?: React.ReactNode;
 }) {
   return (
     <div className="min-h-screen">
@@ -26,7 +29,7 @@ export function AppShell({
                   {appTitle}
                 </span>
                 <span className="block text-xs text-[var(--muted)] group-hover:text-[var(--foreground)]">
-                  Quản lý ghi chỉ số, hóa đơn, thanh toán
+                  Ghi số, in hóa đơn, đánh dấu đã thu
                 </span>
               </span>
             </Link>
@@ -35,7 +38,8 @@ export function AppShell({
               <AppNav items={nav} />
             </nav>
 
-            <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-2 text-sm">
+              {headerActions}
               <div className="hidden min-w-0 sm:block">
                 <div className="truncate font-semibold text-[var(--foreground)]">{user.name}</div>
                 <div className="text-xs text-[var(--muted)]">{userRoleLabel(user.role)}</div>

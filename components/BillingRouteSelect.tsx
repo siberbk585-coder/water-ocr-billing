@@ -1,0 +1,56 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+
+type Route = { id: string; name: string };
+
+export function BillingRouteSelect({
+  periodId,
+  routes,
+  activeRouteId,
+  isSummary,
+}: {
+  periodId: string;
+  routes: Route[];
+  activeRouteId: string | null;
+  isSummary: boolean;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function go(value: string) {
+    const p = new URLSearchParams(searchParams.toString());
+    p.set("period", periodId);
+    p.delete("route");
+    p.delete("view");
+    if (value === "all") {
+      p.set("route", "all");
+    } else if (value === "summary") {
+      p.set("view", "summary");
+    } else {
+      p.set("route", value);
+    }
+    router.push(`/admin/billing-sheet?${p.toString()}`);
+  }
+
+  const current = isSummary ? "summary" : activeRouteId === null ? "all" : activeRouteId;
+
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="shrink-0 font-medium text-[var(--muted)]">Khu vực:</span>
+      <select
+        className="input min-w-[10rem] py-1.5"
+        value={current}
+        onChange={(e) => go(e.target.value)}
+      >
+        <option value="all">Tất cả hộ (bảng tổng)</option>
+        {routes.map((r) => (
+          <option key={r.id} value={r.id}>
+            {r.name}
+          </option>
+        ))}
+        <option value="summary">Chỉ xem tổng theo khu vực</option>
+      </select>
+    </label>
+  );
+}

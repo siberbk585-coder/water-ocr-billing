@@ -90,7 +90,22 @@ export async function getSession(): Promise<SessionUser | null> {
   if (!raw) return null;
   const token = verify(raw);
   if (!token) return null;
-  return decodeSession(token);
+  const decoded = decodeSession(token);
+  if (!decoded?.id) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.id },
+    include: { household: true },
+  });
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    phone: user.phone,
+    name: user.name,
+    role: user.role,
+    householdId: user.household?.id,
+  };
 }
 
 export function requireRole(user: SessionUser | null, role: UserRole): boolean {

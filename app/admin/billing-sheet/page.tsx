@@ -6,17 +6,45 @@ import {
   loadBillingSheetRows,
   loadRouteSummaries,
 } from "@/lib/billingSheet";
-import { BillingSheetGrid } from "@/components/BillingSheetGrid";
+import { BillingSheetGrid, type ReadingStatusFilter } from "@/components/BillingSheetGrid";
 import { BillingSheetSummary } from "@/components/BillingSheetSummary";
 import { BillingPeriodSelect } from "@/components/BillingPeriodSelect";
+import { BillingRouteSelect } from "@/components/BillingRouteSelect";
+import { BillingExcelPanel } from "@/components/BillingExcelPanel";
 import { formatPeriod } from "@/lib/vi";
+import { ReadingStatus } from "@prisma/client";
 
 export default async function BillingSheetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; route?: string; view?: string }>;
+  searchParams: Promise<{
+    period?: string;
+    route?: string;
+    view?: string;
+    status?: string;
+    imported?: string;
+    paid?: string;
+    errors?: string;
+    message?: string;
+    durationMs?: string;
+  }>;
 }) {
-  const { period: periodId, route: routeParam, view } = await searchParams;
+  const {
+    period: periodId,
+    route: routeParam,
+    view,
+    status: statusParam,
+    imported,
+    paid,
+    errors,
+    message,
+    durationMs,
+  } = await searchParams;
+  const statusFilter = (["all", "pending", "confirmed", "rejected"] as const).includes(
+    statusParam as ReadingStatusFilter
+  )
+    ? (statusParam as ReadingStatusFilter)
+    : "all";
   const [periods, routes] = await Promise.all([getBillingPeriods(), getCollectionRoutes()]);
 
   const activePeriod =
@@ -27,109 +55,143 @@ export default async function BillingSheetPage({
   if (!activePeriod) {
     return (
       <>
-        <h1 className="text-2xl font-bold">Bảng ghi chỉ số</h1>
-        <p className="text-[var(--muted)]">Chưa có kỳ ghi nước. Tạo kỳ trong hệ thống trước.</p>
+        <h1 className="text-2xl font-bold">Bảng thu nước</h1>
+        <p className="text-[var(--muted)]">Chưa có kỳ thu. Liên hệ quản trị để tạo kỳ.</p>
       </>
     );
   }
 
   const periodLabel = formatPeriod(activePeriod.month, activePeriod.year);
   const isSummary = view === "summary" || routeParam === "summary";
-  const activeRoute = isSummary
-    ? null
-    : routes.find((r) => r.id === routeParam) ?? routes[0] ?? null;
+  const isAll = routeParam === "all" || (!routeParam && !isSummary);
+  const activeRoute =
+    !isSummary && !isAll && routeParam
+      ? routes.find((r) => r.id === routeParam) ?? null
+      : null;
 
-  const rows =
-    !isSummary && activeRoute
-      ? await loadBillingSheetRows(activePeriod.id, activeRoute.id)
-      : [];
+  const rows = isSummary
+    ? []
+    : await loadBillingSheetRows(
+        activePeriod.id,
+        isAll ? null : activeRoute?.id ?? null
+      );
   const summaries = isSummary ? await loadRouteSummaries(activePeriod.id) : [];
 
-  const recorded = rows.filter((r) => r.csm != null).length;
+  const pendingCount = rows.filter((r) => r.status === ReadingStatus.PENDING).length;
+  const statusTabs: { key: ReadingStatusFilter; label: string }[] = [
+    { key: "all", label: "Tất cả" },
+    { key: "pending", label: pendingCount ? `Chờ chốt (${pendingCount})` : "Chờ chốt" },
+    { key: "confirmed", label: "Đã chốt" },
+    { key: "rejected", label: "Từ chối" },
+  ];
+
+  const routeQuery = isAll ? "all" : activeRoute?.id ?? "all";
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {isSummary ? `TỔNG HỢP (${periodLabel})` : `${activeRoute?.name ?? "Tuyến"} (${periodLabel})`}
-          </h1>
-          <p className="text-sm text-[var(--muted)]">
-            Bảng ghi chỉ số theo tuyến — cột CSC, CSM, STT, TT như Excel.
-          </p>
+      {(imported || paid || errors) && (
+        <div className="card mb-3 border-[var(--primary)]/30 bg-[var(--primary-soft)]/35 py-3 text-sm">
+          Đã xử lý Excel: cập nhật CSM <strong>{imported ?? 0}</strong> · Đã thu{" "}
+          <strong>{paid ?? 0}</strong> · Lỗi <strong>{errors ?? 0}</strong>
+          {durationMs && (
+            <span className="text-[var(--muted)]">
+              {" "}
+              · {(Number(durationMs) / 1000).toFixed(1)}s
+            </span>
+          )}
+          {message && <span className="text-[var(--warning)]"> — {message}</span>}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Suspense fallback={<span className="text-sm">Đang tải…</span>}>
-            <BillingPeriodSelect
-              periods={periods.map((p) => ({
-                id: p.id,
-                label: `${formatPeriod(p.month, p.year)}${p.status === "OPEN" ? " (đang mở)" : ""}`,
-              }))}
-              activePeriodId={activePeriod.id}
-              routeId={activeRoute?.id}
-              isSummary={isSummary}
-            />
-          </Suspense>
-          <a
-            href={`/api/exports/period-xlsx?periodId=${activePeriod.id}`}
-            className="btn btn-primary py-1.5 text-sm"
-          >
-            Tải Excel kỳ này
-          </a>
+      )}
+
+      <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:gap-3">
+          <div>
+            <h1 className="text-xl font-bold sm:text-2xl">Bảng thu nước</h1>
+            <p className="text-sm text-[var(--muted)]">
+              Kỳ <strong>{periodLabel}</strong>
+              {isAll
+                ? " — tất cả hộ"
+                : isSummary
+                  ? " — tổng theo khu vực"
+                  : activeRoute
+                    ? ` — ${activeRoute.name}`
+                    : ""}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Suspense fallback={<span className="text-sm">Đang tải…</span>}>
+              <BillingPeriodSelect
+                periods={periods.map((p) => ({
+                  id: p.id,
+                  label: `${formatPeriod(p.month, p.year)}${p.status === "OPEN" ? " (đang thu)" : ""}`,
+                }))}
+                activePeriodId={activePeriod.id}
+                routeId={isSummary ? undefined : routeQuery}
+                isSummary={isSummary}
+              />
+              <BillingRouteSelect
+                periodId={activePeriod.id}
+                routes={routes.map((r) => ({ id: r.id, name: r.name }))}
+                activeRouteId={isAll ? null : activeRoute?.id ?? null}
+                isSummary={isSummary}
+              />
+            </Suspense>
+          </div>
         </div>
+        <BillingExcelPanel periodId={activePeriod.id} />
       </div>
 
-      <nav className="mb-4 flex flex-wrap gap-1 border-b border-[var(--border)] pb-2">
-        {routes.map((r) => {
-          const href = `/admin/billing-sheet?period=${activePeriod.id}&route=${r.id}`;
-          const active = !isSummary && activeRoute?.id === r.id;
-          return (
-            <Link
-              key={r.id}
-              href={href}
-              className={[
-                "rounded-t-lg px-3 py-2 text-sm font-semibold transition-colors",
-                active
-                  ? "bg-[var(--primary)] text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-[var(--primary-soft)]",
-              ].join(" ")}
-            >
-              {r.name}
-            </Link>
-          );
-        })}
-        <Link
-          href={`/admin/billing-sheet?period=${activePeriod.id}&view=summary`}
-          className={[
-            "rounded-t-lg px-3 py-2 text-sm font-semibold transition-colors",
-            isSummary
-              ? "bg-[var(--primary)] text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-[var(--primary-soft)]",
-          ].join(" ")}
-        >
-          TỔNG HỢP
-        </Link>
-      </nav>
-
-      {!isSummary && activeRoute && (
-        <p className="mb-3 text-sm text-slate-600">
-          {rows.length} hộ — đã ghi {recorded}/{rows.length} — Enter trong ô CSM để lưu và nhảy dòng
-          kế.
-        </p>
+      {!isSummary && (activeRoute || isAll) && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {statusTabs.map((tab) => {
+            const href = `/admin/billing-sheet?period=${activePeriod.id}&route=${routeQuery}&status=${tab.key}`;
+            const active = statusFilter === tab.key;
+            return (
+              <Link
+                key={tab.key}
+                href={href}
+                className={[
+                  "rounded-lg px-3 py-1.5 text-sm font-medium",
+                  active
+                    ? "bg-[var(--primary)] text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-[var(--primary-soft)]",
+                ].join(" ")}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
       )}
 
       {isSummary ? (
         <BillingSheetSummary summaries={summaries} periodLabel={periodLabel} />
-      ) : activeRoute ? (
-        <BillingSheetGrid key={`${activePeriod.id}-${activeRoute.id}`} periodId={activePeriod.id} rows={rows} />
+      ) : activeRoute || isAll ? (
+        <BillingSheetGrid
+          key={`${activePeriod.id}-${routeQuery}-${statusFilter}`}
+          periodId={activePeriod.id}
+          rows={rows}
+          statusFilter={statusFilter}
+          showRoute={isAll}
+        />
       ) : (
         <p className="text-[var(--muted)]">
-          Chưa có tuyến thu.{" "}
-          <Link href="/admin/routes" className="text-[var(--primary)] hover:underline">
-            Thêm tuyến
+          Chưa có khu vực thu.{" "}
+          <Link href="/admin/households" className="text-[var(--primary)] hover:underline">
+            Gán hộ vào khu vực
           </Link>
         </p>
       )}
+
+      <p className="mt-6 text-center text-xs text-[var(--muted)]">
+        <Link href="/admin/routes" className="hover:underline">
+          Sửa khu vực thu (tuyến)
+        </Link>
+        {" · "}
+        <Link href="/admin/invoices" className="hover:underline">
+          Danh sách hóa đơn
+        </Link>
+      </p>
     </>
   );
 }

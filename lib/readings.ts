@@ -105,9 +105,8 @@ export function readingLastUpdatedAt(reading: {
 }
 
 /**
- * Hộ dân gửi CSM:
- * - Có ảnh → n8n webhook → nhận link → ghi `imagePath` + xác nhận DB.
- * - Không ảnh → bỏ qua n8n, ghi thẳng DB (CONFIRMED).
+ * Hộ dân gửi CSM → PENDING (chờ tổ trưởng/kế toán chốt).
+ * Có ảnh → n8n → imagePath; không ảnh → bỏ qua n8n.
  */
 export async function submitManualReading(params: {
   householdId: string;
@@ -153,13 +152,21 @@ export async function submitManualReading(params: {
     },
   });
 
-  const draft = existing
+  const inputMethod =
+    imagePath || existing?.imagePath ? InputMethod.OCR_EDITED : InputMethod.MANUAL;
+
+  const reading = existing
     ? await prisma.meterReading.update({
         where: { id: existing.id },
         data: {
           oldReading,
+          confirmedValue: params.confirmedValue,
+          inputMethod,
           ...(imagePath ? { imagePath } : {}),
           submittedAt: new Date(),
+          status: ReadingStatus.PENDING,
+          usageM3: null,
+          confirmedAt: null,
           anomalyFlags: "[]",
         },
       })
@@ -168,30 +175,92 @@ export async function submitManualReading(params: {
           householdId: params.householdId,
           periodId: params.periodId,
           oldReading,
+          confirmedValue: params.confirmedValue,
+          inputMethod,
           imagePath: imagePath ?? null,
           status: ReadingStatus.PENDING,
           anomalyFlags: "[]",
         },
       });
 
-  const inputMethod =
-    imagePath || existing?.imagePath ? InputMethod.OCR_EDITED : InputMethod.MANUAL;
-
-  const reading = await confirmReading({
-    readingId: draft.id,
-    confirmedValue: params.confirmedValue,
-    inputMethod,
-    actorId: params.actorId,
-  });
-
   if (params.actorId) {
     await logAudit({
       actorId: params.actorId,
-      action: "READING_CONFIRMED",
+      action: "READING_SUBMITTED",
       entity: "MeterReading",
       entityId: reading.id,
     });
   }
+
+  return reading;
+}
+
+/** Tổ trưởng / kế toán chốt chỉ số hộ đã gửi. */
+export async function approveReading(params: {
+  readingId: string;
+  actorId: string;
+  confirmedValue?: number;
+}) {
+  const existing = await prisma.meterReading.findUniqueOrThrow({
+    where: { id: params.readingId },
+  });
+  if (existing.status !== ReadingStatus.PENDING) {
+    throw new Error("Chỉ duyệt được chỉ số đang chờ xử lý");
+  }
+  const value = params.confirmedValue ?? existing.confirmedValue;
+  if (value == null) throw new Error("Thiếu chỉ số mới (CSM)");
+
+  const inputMethod =
+    existing.imagePath && existing.inputMethod === InputMethod.OCR_EDITED
+      ? InputMethod.OCR_EDITED
+      : InputMethod.MANUAL;
+
+  const reading = await confirmReading({
+    readingId: existing.id,
+    confirmedValue: value,
+    inputMethod,
+    actorId: params.actorId,
+  });
+
+  await logAudit({
+    actorId: params.actorId,
+    action: "READING_CONFIRMED",
+    entity: "MeterReading",
+    entityId: reading.id,
+  });
+
+  return reading;
+}
+
+/** Từ chối — hộ có thể gửi lại. */
+export async function rejectReading(params: {
+  readingId: string;
+  actorId: string;
+  reason?: string;
+}) {
+  const existing = await prisma.meterReading.findUniqueOrThrow({
+    where: { id: params.readingId },
+  });
+  if (existing.status !== ReadingStatus.PENDING) {
+    throw new Error("Chỉ từ chối được chỉ số đang chờ xử lý");
+  }
+
+  const reading = await prisma.meterReading.update({
+    where: { id: existing.id },
+    data: {
+      status: ReadingStatus.REJECTED,
+      anomalyFlags: "[]",
+      usageM3: null,
+      confirmedAt: null,
+    },
+  });
+
+  await logAudit({
+    actorId: params.actorId,
+    action: "READING_REJECTED",
+    entity: "MeterReading",
+    entityId: reading.id,
+  });
 
   return reading;
 }

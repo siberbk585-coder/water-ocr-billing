@@ -1,22 +1,44 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { ReadingStatus } from "@prisma/client";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { InvoiceStatus, ReadingStatus } from "@prisma/client";
 import type { BillingSheetRow } from "@/lib/billingSheet";
 import { previewBillingRow } from "@/lib/billing";
 import { readingStatusLabel } from "@/lib/vi";
+import { BillingSheetInvoiceBtn } from "@/components/BillingSheetInvoiceBtn";
+
+export type ReadingStatusFilter = "all" | "pending" | "confirmed" | "rejected";
 
 type Props = {
   periodId: string;
   rows: BillingSheetRow[];
+  statusFilter?: ReadingStatusFilter;
+  /** Bảng tổng — hiện cột khu vực */
+  showRoute?: boolean;
 };
 
-export function BillingSheetGrid({ periodId, rows }: Props) {
+export function BillingSheetGrid({
+  periodId,
+  rows,
+  statusFilter = "all",
+  showRoute = false,
+}: Props) {
   const [localRows, setLocalRows] = useState(rows);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const filteredRows = useMemo(() => {
+    if (statusFilter === "all") return localRows;
+    if (statusFilter === "pending") {
+      return localRows.filter((r) => r.status === ReadingStatus.PENDING);
+    }
+    if (statusFilter === "confirmed") {
+      return localRows.filter((r) => r.status === ReadingStatus.CONFIRMED);
+    }
+    return localRows.filter((r) => r.status === ReadingStatus.REJECTED);
+  }, [localRows, statusFilter]);
 
   const initDraft = useCallback((row: BillingSheetRow) => {
     if (row.csm != null) return String(row.csm);
@@ -35,6 +57,35 @@ export function BillingSheetGrid({ periodId, rows }: Props) {
       delete next[householdId];
       return next;
     });
+  }
+
+  function applyReadingUpdate(
+    householdId: string,
+    reading: {
+      id: string;
+      confirmedValue: number | null;
+      status: ReadingStatus;
+      usageM3: number | null;
+    },
+    unitPrice: number,
+    oldReading: number
+  ) {
+    const csm = reading.confirmedValue ?? 0;
+    const preview = previewBillingRow(oldReading, csm, unitPrice);
+    setLocalRows((prev) =>
+      prev.map((r) =>
+        r.householdId === householdId
+          ? {
+              ...r,
+              readingId: reading.id,
+              csm,
+              status: reading.status,
+              usageM3: reading.usageM3 ?? preview.usageM3,
+              totalAmount: preview.totalAmount,
+            }
+          : r
+      )
+    );
   }
 
   async function saveRow(row: BillingSheetRow) {
@@ -68,21 +119,7 @@ export function BillingSheetGrid({ periodId, rows }: Props) {
         setErrors((e) => ({ ...e, [row.householdId]: body.error ?? "Lỗi lưu" }));
         return;
       }
-      const preview = previewBillingRow(row.oldReading, confirmedValue, row.unitPrice);
-      setLocalRows((prev) =>
-        prev.map((r) =>
-          r.householdId === row.householdId
-            ? {
-                ...r,
-                readingId: body.reading.id,
-                csm: confirmedValue,
-                status: ReadingStatus.CONFIRMED,
-                usageM3: preview.usageM3,
-                totalAmount: preview.totalAmount,
-              }
-            : r
-        )
-      );
+      applyReadingUpdate(row.householdId, body.reading, row.unitPrice, row.oldReading);
       setDrafts((d) => {
         const next = { ...d };
         delete next[row.householdId];
@@ -95,30 +132,154 @@ export function BillingSheetGrid({ periodId, rows }: Props) {
     }
   }
 
+  async function approveRow(row: BillingSheetRow) {
+    if (!row.readingId) {
+      setErrors((e) => ({ ...e, [row.householdId]: "Chưa có bản ghi chỉ số" }));
+      return;
+    }
+    const raw = getDraft(row.householdId, row);
+    const confirmedValue = parseFloat(raw);
+    const body: { readingId: string; confirmedValue?: number } = {
+      readingId: row.readingId,
+    };
+    if (!Number.isNaN(confirmedValue) && confirmedValue > 0) {
+      body.confirmedValue = confirmedValue;
+    }
+
+    setSaving(row.householdId);
+    try {
+      const res = await fetch("/api/admin/readings/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrors((e) => ({ ...e, [row.householdId]: data.error ?? "Không chốt được" }));
+        return;
+      }
+      applyReadingUpdate(row.householdId, data.reading, row.unitPrice, row.oldReading);
+      setDrafts((d) => {
+        const next = { ...d };
+        delete next[row.householdId];
+        return next;
+      });
+    } catch {
+      setErrors((e) => ({ ...e, [row.householdId]: "Lỗi kết nối" }));
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function markPaid(row: BillingSheetRow) {
+    if (!row.invoiceId) {
+      setErrors((e) => ({
+        ...e,
+        [row.householdId]: "Chưa có hóa đơn — tạo HĐ trước",
+      }));
+      return;
+    }
+    if (row.paid) return;
+
+    setSaving(row.householdId);
+    try {
+      const res = await fetch("/api/payments/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId: row.invoiceId, method: "TRANSFER" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrors((e) => ({ ...e, [row.householdId]: data.error ?? "Không ghi được" }));
+        return;
+      }
+      setLocalRows((prev) =>
+        prev.map((r) =>
+          r.householdId === row.householdId
+            ? { ...r, paid: true, invoiceStatus: InvoiceStatus.PAID }
+            : r
+        )
+      );
+    } catch {
+      setErrors((e) => ({ ...e, [row.householdId]: "Lỗi kết nối" }));
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function rejectRow(row: BillingSheetRow) {
+    if (!row.readingId) return;
+    if (!confirm(`Từ chối chỉ số hộ ${row.householdCode}? Hộ sẽ gửi lại được.`)) return;
+
+    setSaving(row.householdId);
+    try {
+      const res = await fetch("/api/admin/readings/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ readingId: row.readingId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrors((e) => ({ ...e, [row.householdId]: data.error ?? "Không từ chối được" }));
+        return;
+      }
+      setLocalRows((prev) =>
+        prev.map((r) =>
+          r.householdId === row.householdId
+            ? { ...r, status: ReadingStatus.REJECTED, usageM3: null, totalAmount: null }
+            : r
+        )
+      );
+    } catch {
+      setErrors((e) => ({ ...e, [row.householdId]: "Lỗi kết nối" }));
+    } finally {
+      setSaving(null);
+    }
+  }
+
   function focusNext(currentId: string) {
-    const idx = localRows.findIndex((r) => r.householdId === currentId);
-    const next = localRows[idx + 1];
+    const idx = filteredRows.findIndex((r) => r.householdId === currentId);
+    const next = filteredRows[idx + 1];
     if (next) inputRefs.current[next.householdId]?.focus();
+  }
+
+  if (!filteredRows.length) {
+    return (
+      <div className="card text-sm text-[var(--muted)]">
+        Không có hộ nào trong bộ lọc này.
+      </div>
+    );
   }
 
   return (
     <div className="overflow-x-auto card p-0">
-      <table className="table-modern billing-sheet-table min-w-[900px]">
-        <thead className="sticky top-0 z-10 border-b bg-slate-100 text-left text-xs uppercase tracking-wide">
+      <table className="table-modern billing-sheet-table min-w-[960px]">
+        <thead className="sticky top-0 z-10 border-b bg-slate-100 text-left text-xs">
           <tr>
-            <th className="w-12">TT</th>
-            <th>Họ và tên</th>
-            <th className="w-28">SĐT</th>
-            <th className="w-24">MKH</th>
-            <th className="w-20 text-right">CSC</th>
-            <th className="w-28 text-right">CSM</th>
-            <th className="w-16 text-right">STT</th>
-            <th className="w-28 text-right">TT</th>
-            <th className="w-24"></th>
+            <th className="w-10" title="Thứ tự trên tuyến">
+              #
+            </th>
+            {showRoute && <th className="w-28">Khu vực</th>}
+            <th>Họ tên</th>
+            <th className="w-24">Mã hộ</th>
+            <th className="w-16 text-right" title="Chỉ số cũ">
+              Số cũ
+            </th>
+            <th className="w-28 text-right" title="Chỉ số mới — nhập tại đây">
+              Số mới
+            </th>
+            <th className="w-14 text-right" title="Tiêu thụ m³">
+              m³
+            </th>
+            <th className="w-24 text-right">Tiền</th>
+            <th className="w-16 text-center">Hóa đơn</th>
+            <th className="w-32 text-center">Chỉ số tháng này</th>
+            <th className="w-24 text-center">Thanh toán</th>
+            <th className="w-20 text-center">Ảnh</th>
           </tr>
         </thead>
         <tbody>
-          {localRows.map((row, index) => {
+          {filteredRows.map((row, index) => {
             const draft = getDraft(row.householdId, row);
             const draftNum = draft === "" ? null : parseFloat(draft);
             const preview =
@@ -134,6 +295,7 @@ export function BillingSheetGrid({ periodId, rows }: Props) {
               "border-b",
               missing ? "bg-amber-50/80" : "",
               pending ? "bg-sky-50/50" : "",
+              row.status === ReadingStatus.REJECTED ? "bg-red-50/40" : "",
             ]
               .filter(Boolean)
               .join(" ");
@@ -143,8 +305,10 @@ export function BillingSheetGrid({ periodId, rows }: Props) {
                 <td className="text-center text-[var(--muted)]">
                   {row.routeSortOrder ?? index + 1}
                 </td>
+                {showRoute && (
+                  <td className="text-xs text-[var(--muted)]">{row.routeName ?? "—"}</td>
+                )}
                 <td className="font-medium">{row.residentName}</td>
-                <td className="text-sm text-[var(--muted)]">{row.contactPhone ?? ""}</td>
                 <td className="font-mono text-sm font-semibold">{row.householdCode}</td>
                 <td className="text-right font-mono tabular-nums">{row.oldReading}</td>
                 <td className="text-right">
@@ -161,17 +325,15 @@ export function BillingSheetGrid({ periodId, rows }: Props) {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        void saveRow(row).then(() => focusNext(row.householdId));
+                        if (pending) void approveRow(row).then(() => focusNext(row.householdId));
+                        else void saveRow(row).then(() => focusNext(row.householdId));
                       }
                     }}
                   />
                   {pending && (
                     <span className="badge badge-warning mt-0.5 block text-[10px]">
-                      Chờ duyệt
+                      Chờ chốt
                     </span>
-                  )}
-                  {row.hasImage && !pending && row.status === ReadingStatus.CONFIRMED && (
-                    <span className="mt-0.5 block text-[10px] text-[var(--muted)]">Có ảnh</span>
                   )}
                 </td>
                 <td className="text-right font-mono tabular-nums">
@@ -180,22 +342,84 @@ export function BillingSheetGrid({ periodId, rows }: Props) {
                 <td className="text-right font-mono tabular-nums text-sm">
                   {preview.totalLabel}
                 </td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn btn-secondary py-1 text-xs"
-                    disabled={saving === row.householdId}
-                    onClick={() => void saveRow(row)}
-                  >
-                    {saving === row.householdId ? "…" : "Lưu"}
-                  </button>
+                <td className="text-center">
+                  <BillingSheetInvoiceBtn
+                    periodId={periodId}
+                    householdId={row.householdId}
+                    invoiceId={row.invoiceId}
+                    pdfPath={row.pdfPath}
+                    status={row.status}
+                  />
+                </td>
+                <td className="space-y-1 text-center text-xs">
+                  <div className="mx-auto flex max-w-[7rem] flex-col gap-1">
+                    {pending ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-primary py-1 text-xs"
+                          disabled={saving === row.householdId}
+                          onClick={() => void approveRow(row)}
+                        >
+                          {saving === row.householdId ? "…" : "Chốt"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-secondary py-1 text-xs"
+                          disabled={saving === row.householdId}
+                          onClick={() => void rejectRow(row)}
+                        >
+                          Từ chối
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-secondary py-1 text-xs"
+                        disabled={saving === row.householdId}
+                        onClick={() => void saveRow(row)}
+                      >
+                        {saving === row.householdId ? "…" : "Lưu"}
+                      </button>
+                    )}
+                  </div>
                   {errors[row.householdId] && (
-                    <p className="mt-1 text-[10px] text-[var(--danger)]">{errors[row.householdId]}</p>
+                    <p className="text-[10px] text-[var(--danger)]">{errors[row.householdId]}</p>
                   )}
                   {row.status && !errors[row.householdId] && (
-                    <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                    <p className="text-[10px] text-[var(--muted)]">
                       {readingStatusLabel(row.status)}
                     </p>
+                  )}
+                </td>
+                <td className="text-center text-xs">
+                  {row.paid ? (
+                    <span className="badge badge-success">Đã thu</span>
+                  ) : row.invoiceId ? (
+                    <button
+                      type="button"
+                      className="font-semibold text-[var(--primary)] hover:underline"
+                      disabled={saving === row.householdId}
+                      onClick={() => void markPaid(row)}
+                    >
+                      Chưa
+                    </button>
+                  ) : (
+                    <span className="text-[var(--muted)]">—</span>
+                  )}
+                </td>
+                <td className="text-center text-xs">
+                  {row.hasImage && row.imagePath ? (
+                    <a
+                      href={row.imagePath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-[var(--primary)] hover:underline"
+                    >
+                      Xem ảnh
+                    </a>
+                  ) : (
+                    <span className="text-[var(--muted)]">—</span>
                   )}
                 </td>
               </tr>

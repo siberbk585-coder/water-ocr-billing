@@ -40,7 +40,12 @@ async function main() {
   const routes = await Promise.all(
     COLLECTION_ROUTES.map((r) =>
       prisma.collectionRoute.create({
-        data: { code: r.code, name: r.name, sortOrder: r.sortOrder },
+        data: {
+          code: r.code,
+          name: r.name,
+          sortOrder: r.sortOrder,
+          unitPrice: r.unitPrice,
+        },
       })
     )
   );
@@ -91,11 +96,8 @@ async function main() {
     const routeIndex = Math.min(routeCount - 1, Math.floor((i - 1) / perRoute));
     const route = routes[routeIndex];
     const routeSeq = ((i - 1) % perRoute) + 1;
-    const routePrefix = route.code === "212" ? "212" : route.code.replace(/-/g, "").slice(0, 3).toUpperCase();
-    const mkh =
-      route.code === "212"
-        ? `212${String(routeSeq).padStart(3, "0")}`
-        : `${routePrefix}${String(routeSeq).padStart(3, "0")}`;
+    const routeKey = route.code.replace(/-/g, "").toUpperCase();
+    const mkh = `${routeKey}${String(routeSeq).padStart(3, "0")}`;
 
     const meterCode = `DH${String(i).padStart(5, "0")}`;
     const baseReading = 100 + (i % 80);
@@ -137,9 +139,32 @@ async function main() {
       });
       prevConfirmed = confirmed;
     }
+
+    // Kỳ hiện tại: một phần đã chốt, một phần chờ chốt (demo bảng thu)
+    const usageNow = 8 + (i % 6);
+    const csmNow = prevConfirmed + usageNow;
+    const statusNow =
+      i % 5 === 0 ? ReadingStatus.PENDING : ReadingStatus.CONFIRMED;
+    await prisma.meterReading.create({
+      data: {
+        householdId: household.id,
+        periodId: currentPeriod.id,
+        oldReading: prevConfirmed,
+        ocrValue: statusNow === ReadingStatus.PENDING ? csmNow : undefined,
+        confirmedValue: statusNow === ReadingStatus.CONFIRMED ? csmNow : null,
+        usageM3: statusNow === ReadingStatus.CONFIRMED ? usageNow : null,
+        inputMethod:
+          statusNow === ReadingStatus.CONFIRMED ? InputMethod.MANUAL : undefined,
+        status: statusNow,
+        confirmedAt: statusNow === ReadingStatus.CONFIRMED ? new Date() : null,
+      },
+    });
   }
 
-  console.log(`Đã seed ${HOUSEHOLD_COUNT} hộ dân, ${routes.length} tuyến, ${periods.length} kỳ`);
+  console.log(`Đã seed ${HOUSEHOLD_COUNT} hộ dân, ${routes.length} khu vực (giá theo khu vực), ${periods.length} kỳ`);
+  for (const r of routes) {
+    console.log(`  · ${r.name}: ${r.unitPrice?.toLocaleString("vi-VN")} đ/m³`);
+  }
   console.log("Tài khoản quản trị: 0900000001 / 123456");
   console.log("Tài khoản hộ dân: 0912345678 / 123456 (MKH 212001)");
   console.log(`Kỳ hiện tại: ${periodLabel(currentPeriod.year, currentPeriod.month)}`);

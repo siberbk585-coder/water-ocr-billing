@@ -1,4 +1,5 @@
 import { buildImageFilename, uploadedAtIso } from "./filename";
+import { extractUrlFromN8nResponse } from "./n8nLink";
 
 export type N8nImageUploadResult = {
   url: string;
@@ -10,60 +11,6 @@ const DEFAULT_WEBHOOK = "https://iatzhxxuk.tino.page/webhook/luuhinhanh";
 export function n8nImageWebhookUrl(): string | null {
   if (process.env.N8N_IMAGE_WEBHOOK_DISABLED === "true") return null;
   return process.env.N8N_IMAGE_WEBHOOK_URL?.trim() || DEFAULT_WEBHOOK;
-}
-
-const LINK_KEYS = [
-  "webContentLink",
-  "webViewLink",
-  "url",
-  "imageUrl",
-  "downloadUrl",
-  "fileUrl",
-  "link",
-] as const;
-
-function isHttpUrl(v: unknown): v is string {
-  return typeof v === "string" && /^https?:\/\//i.test(v);
-}
-
-function linkFromObject(o: Record<string, unknown>): string | null {
-  for (const key of LINK_KEYS) {
-    if (isHttpUrl(o[key])) return o[key];
-  }
-  return null;
-}
-
-function extractUrl(data: unknown): string | null {
-  if (!data) return null;
-  if (typeof data === "string") {
-    if (isHttpUrl(data)) return data;
-    try {
-      return extractUrl(JSON.parse(data));
-    } catch {
-      return null;
-    }
-  }
-  if (Array.isArray(data)) {
-    for (const item of data) {
-      const u = extractUrl(item);
-      if (u) return u;
-    }
-    return null;
-  }
-  if (typeof data === "object") {
-    const o = data as Record<string, unknown>;
-    const direct = linkFromObject(o);
-    if (direct) return direct;
-    if (o.body && typeof o.body === "object") {
-      const u = linkFromObject(o.body as Record<string, unknown>);
-      if (u) return u;
-    }
-    if (o.json) {
-      const u = extractUrl(o.json);
-      if (u) return u;
-    }
-  }
-  return null;
 }
 
 /** Gửi ảnh lên webhook n8n — workflow n8n trả `url` (Respond to Webhook). */
@@ -122,7 +69,7 @@ export async function postImageToN8nWebhook(
     throw new Error(`n8n webhook HTTP ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  const url = extractUrl(parsed);
+  const url = extractUrlFromN8nResponse(parsed);
   if (!url) {
     throw new Error(
       "n8n webhook không trả link ảnh. Cần trường url hoặc webContentLink (Google Drive) trong JSON response."
