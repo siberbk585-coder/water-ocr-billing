@@ -12,47 +12,52 @@ export function AppShell({
   user: SessionUser;
   children: React.ReactNode;
   nav: { href: string; label: string }[];
-  /** Nút/icon cạnh tên người dùng (vd cài đặt kỳ). */
   headerActions?: React.ReactNode;
 }) {
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/75">
         <div className="mx-auto max-w-7xl px-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 py-3">
-            <Link href="/" className="group inline-flex items-center gap-3">
-              <span className="grid h-9 w-9 place-items-center rounded-xl border border-[var(--border)] bg-white shadow-sm">
+          <div className="flex h-14 items-center gap-3 sm:gap-4">
+            <Link
+              href="/"
+              className="group flex shrink-0 items-center gap-2.5 sm:gap-3"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-white shadow-sm">
                 <span className="h-2.5 w-2.5 rounded-full bg-[var(--primary)]" />
               </span>
-              <span className="leading-tight">
+              <span className="hidden leading-tight sm:block">
                 <span className="block text-sm font-semibold tracking-tight text-[var(--foreground)]">
                   {appTitle}
                 </span>
-                <span className="block text-xs text-[var(--muted)] group-hover:text-[var(--foreground)]">
-                  Ghi số, in hóa đơn, đánh dấu đã thu
+                <span className="block max-w-[11rem] truncate text-xs text-[var(--muted)] group-hover:text-[var(--foreground)] md:max-w-none">
+                  Ghi số · Hóa đơn · Thu tiền
                 </span>
               </span>
+              <span className="text-sm font-semibold sm:hidden">{appTitle}</span>
             </Link>
 
-            <nav className="w-full sm:w-auto" aria-label="Menu chính">
+            <nav
+              className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label="Menu chính"
+            >
               <AppNav items={nav} />
             </nav>
 
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex shrink-0 items-center gap-1.5 border-l border-[var(--border)] pl-2 sm:gap-2 sm:pl-3">
               {headerActions}
-              <div className="hidden min-w-0 sm:block">
-                <div className="truncate font-semibold text-[var(--foreground)]">{user.name}</div>
-                <div className="text-xs text-[var(--muted)]">{userRoleLabel(user.role)}</div>
+              <div className="hidden text-right lg:block">
+                <div className="max-w-[8rem] truncate text-sm font-semibold text-[var(--foreground)] xl:max-w-[10rem]">
+                  {user.name}
+                </div>
+                <div className="text-xs text-[var(--muted)]">
+                  {userRoleLabel(user.role)}
+                </div>
               </div>
-
-              <span className="badge bg-[var(--primary-soft)] text-[var(--primary-dark)] sm:hidden">
-                {userRoleLabel(user.role)}
-              </span>
-
-              <form action="/api/auth/logout" method="POST">
+              <form action="/api/auth/logout" method="POST" className="shrink-0">
                 <button
                   type="submit"
-                  className="btn btn-secondary px-3 py-1.5 text-sm font-semibold"
+                  className="btn btn-secondary whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold sm:px-3 sm:text-sm"
                 >
                   Đăng xuất
                 </button>
