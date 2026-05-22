@@ -1,29 +1,17 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import {
+  formatAuditMetadata,
+  formatMeterReadingAuditDetail,
+  isEmptyAuditMetadata,
+} from "@/lib/auditDisplay";
+import {
   auditActionLabel,
   entityLabel,
   userRoleLabel,
 } from "@/lib/vi";
 
 const PAGE_SIZE = 50;
-
-function formatMeta(raw: string): string {
-  if (!raw || raw === "{}") return "—";
-  try {
-    const obj = JSON.parse(raw) as Record<string, unknown>;
-    const parts = Object.entries(obj)
-      .filter(([, v]) => v != null && v !== "")
-      .map(([k, v]) => {
-        const val =
-          typeof v === "object" ? JSON.stringify(v) : String(v);
-        return `${k}: ${val.length > 48 ? `${val.slice(0, 45)}…` : val}`;
-      });
-    return parts.length ? parts.join(" · ") : "—";
-  } catch {
-    return raw.slice(0, 80);
-  }
-}
 
 function formatWhen(d: Date): string {
   return d.toLocaleString("vi-VN", {
@@ -62,6 +50,51 @@ export default async function AuditLogPage({
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const readingEnrichIds = [
+    ...new Set(
+      logs
+        .filter(
+          (l) =>
+            l.entity === "MeterReading" &&
+            l.entityId &&
+            isEmptyAuditMetadata(l.metadata)
+        )
+        .map((l) => l.entityId as string)
+    ),
+  ];
+
+  const readingsById = new Map(
+    readingEnrichIds.length
+      ? (
+          await prisma.meterReading.findMany({
+            where: { id: { in: readingEnrichIds } },
+            include: {
+              household: {
+                select: { householdCode: true, meterCode: true },
+              },
+            },
+          })
+        ).map((r) => [r.id, r] as const)
+      : []
+  );
+
+  const logRows = logs.map((log) => {
+    if (
+      log.entity === "MeterReading" &&
+      log.entityId &&
+      isEmptyAuditMetadata(log.metadata)
+    ) {
+      const reading = readingsById.get(log.entityId);
+      if (reading) {
+        return {
+          log,
+          detail: formatMeterReadingAuditDetail(reading, reading.household),
+        };
+      }
+    }
+    return { log, detail: formatAuditMetadata(log.metadata) };
+  });
 
   function pageHref(p: number, action?: string) {
     const q = new URLSearchParams();
@@ -124,7 +157,7 @@ export default async function AuditLogPage({
             </tr>
           </thead>
           <tbody>
-            {logs.map((log) => (
+            {logRows.map(({ log, detail }) => (
               <tr key={log.id} className="border-b text-sm">
                 <td className="whitespace-nowrap text-[var(--muted)]">
                   {formatWhen(log.createdAt)}
@@ -157,8 +190,8 @@ export default async function AuditLogPage({
                     </span>
                   )}
                 </td>
-                <td className="max-w-xs text-xs text-[var(--muted)]">
-                  {formatMeta(log.metadata)}
+                <td className="max-w-md text-xs text-[var(--muted)]">
+                  {detail}
                 </td>
               </tr>
             ))}

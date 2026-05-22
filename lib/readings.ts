@@ -5,6 +5,7 @@ import { calculateUsage } from "./billing";
 import { buildImageFilename } from "./filename";
 import { uploadReadingImageViaN8n } from "./imageUpload";
 import { logAudit } from "./audit";
+import { meterReadingAuditMetadata } from "./auditDisplay";
 
 export async function getAvgUsage3Months(
   householdId: string,
@@ -118,7 +119,7 @@ export async function submitManualReading(params: {
 }) {
   const household = await prisma.household.findUniqueOrThrow({
     where: { id: params.householdId },
-    select: { householdCode: true },
+    select: { householdCode: true, meterCode: true },
   });
 
   const oldReading = await getOldReading(params.householdId, params.periodId);
@@ -189,6 +190,9 @@ export async function submitManualReading(params: {
       action: "READING_SUBMITTED",
       entity: "MeterReading",
       entityId: reading.id,
+      metadata: meterReadingAuditMetadata(reading, household, {
+        coAnh: Boolean(imagePath),
+      }),
     });
   }
 
@@ -203,6 +207,9 @@ export async function approveReading(params: {
 }) {
   const existing = await prisma.meterReading.findUniqueOrThrow({
     where: { id: params.readingId },
+    include: {
+      household: { select: { householdCode: true, meterCode: true } },
+    },
   });
   if (existing.status !== ReadingStatus.PENDING) {
     throw new Error("Chỉ duyệt được chỉ số đang chờ xử lý");
@@ -227,6 +234,7 @@ export async function approveReading(params: {
     action: "READING_CONFIRMED",
     entity: "MeterReading",
     entityId: reading.id,
+    metadata: meterReadingAuditMetadata(reading, existing.household),
   });
 
   return reading;
@@ -240,6 +248,9 @@ export async function rejectReading(params: {
 }) {
   const existing = await prisma.meterReading.findUniqueOrThrow({
     where: { id: params.readingId },
+    include: {
+      household: { select: { householdCode: true, meterCode: true } },
+    },
   });
   if (existing.status !== ReadingStatus.PENDING) {
     throw new Error("Chỉ từ chối được chỉ số đang chờ xử lý");
@@ -260,6 +271,9 @@ export async function rejectReading(params: {
     action: "READING_REJECTED",
     entity: "MeterReading",
     entityId: reading.id,
+    metadata: meterReadingAuditMetadata(reading, existing.household, {
+      ...(params.reason ? { lyDo: params.reason } : {}),
+    }),
   });
 
   return reading;
@@ -272,6 +286,11 @@ export async function adminUpsertReading(params: {
   confirmedValue: number;
   actorId: string;
 }) {
+  const household = await prisma.household.findUniqueOrThrow({
+    where: { id: params.householdId },
+    select: { householdCode: true, meterCode: true },
+  });
+
   const oldReading = await getOldReading(params.householdId, params.periodId);
 
   const existing = await prisma.meterReading.findUnique({
@@ -313,6 +332,7 @@ export async function adminUpsertReading(params: {
     action: "READING_CONFIRMED",
     entity: "MeterReading",
     entityId: reading.id,
+    metadata: meterReadingAuditMetadata(reading, household),
   });
 
   return reading;
